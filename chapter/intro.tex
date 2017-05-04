@@ -1,0 +1,70 @@
+\footnote{TODO: intro to big data, http://queue.acm.org/detail.cfm?id=1594206}
+The Apache Hadoop project is by far the most well-known open source toolkit for the storage and processing of big data.
+Since its inception, the Hadoop project moved from a map-reduce framework to a generic set of loosely coupled services that can be used for many different kinds of computation.
+One of the most important components of this ecosystem and the focus of this thesis is HDFS.
+
+Apache HDFS is a distributed filesystem designed to store very large files and allow for programs and frameworks written in different languages to operate on the data.
+It is successfully deployed by many companies and it is capable of running on very large clusters.
+Its design uses a single node, the namenode, to centrally manage metadata for the whole cluster and this creates a limitation for both the scalability and robustness as the system as a whole.
+To improve robustness it is possible to run a second namenode which will act as a hot-standby, ready to replace the primary in case of problems, and then either trigger a manual failover or configure the cluster for automatic failover using Zookeeper.
+While both methods improve the reliability of the system, neither does so without significant complications.
+First, both methods require the cluster operator to run additional services, the JournalNodes, just to keep the standby namenode in sync with the primary.
+In case of manual failover, the cluster operator must then manually verify and trigger the operation in case of problems, which is a slow and error prone procedure.
+In case of automatic failover, however, the cluster operator is required to configure and manage a Zookeeper cluster and a ZKFailoverController process on every namenode which significantly increases the complexity of the deployment as a whole.
+Furthermore neither solution improves the scalability of the system because all RPCs are still directed to the active namenode.
+
+The limitations described also present challenges for operators that want to run their HDFS clusters in public cloud environments such as Amazon Web Services (AWS), Google Cloud Platform (GCP) or Microsoft Azure.
+Public clouds offer virtual machines that are executed on hypervisors that are shared with other customers, and performance and reliability tend to be unpredictable as a result.
+Cloud provider also tend to provide reliability at a more abstract level than on-premise deployments.
+Whereas in a typical data-center the failure domains are machine, rack, and whole data-center, cloud providers have machines, availability zones and regions.
+Single instances in most cloud providers are considered unreliable and expendable, therefore proper cloud software should be resilient to the failure of any one instance by distributing or replicating processes onto multiple instances.
+HDFS expectation that the machine hosting the namenode be stable and with consistent performance is therefore difficult to achieve in cloud environments, even when considering an high availability setup.
+To solve this problem, most providers offer managed offers of Hadoop that can automatically create and manage clusters and let the customer focus on writing the data processing pipeline.
+This does not, however, solve the problem of efficiently managing HDFS clusters in the cloud.
+
+To store large amount of data on the cloud, the most popular approach is to use provider-managed cloud storage solutions such as Amazon's Simple Storage Service (S3), Google Cloud Storage or Azure Blob storage.
+These systems allow customers to use a simple API to upload, list, and retrieve millions of blobs which can be several terabytes in size each.
+Furthermore these services seamlessly scale without any user intervention and are priced according to the amount of data consumed and the bandwidth used to operate on them.
+While it may sound tempting to adapt applications to use cloud storage systems and forego HDFS, and hierarchical filesystems entirely, these system do not offer the primitives associated with traditional (distributed) filesystems.
+First, these systems are actually key-value stores that associate a key, the path name, to a value, the blob.
+While this helps with scalability, different keys can be mapped to different storage machines, it makes common operations such as listing the content of directories much slower and with a linear time increase with the number of entries in the store. 
+Furthermore, to maintain their favourable scalability characteristics and fault-tolerance, they sacrifice consistency for availability in the face of network partitions, resulting in an eventually consistent system.
+Eventually consistent systems propagate changes in the system asynchronously which may result in client retrieving stale data, such as a listing of a directory missing some newly created files or a payload fetch which still retrieves a recently deleted object.
+To allow these systems to offer consistency semantics equal to those of HDFS, some cloud providers, such as Amazon for their managed Hadoop offer (EMR), build additional software that expose a HDFS-compliant API while managing metadata in such a way that the overall system appears to have consistent metadata.
+The trade-offs are that this approach introduces further components that need to be managed and scaled, it worsens performance of the overall system because of the wait times required for the changes to propagate through the system, and it introduces the possibility of the metadata store becoming inconsistent with the underlying data store.
+
+To solve the mismatch of HDFS with cloud environments, the Hops project provides a scalable, cloud-ready, protocol-compatible distribution of HDFS called HopsFS.
+HopsFS solves the biggest architectural problem that limits both HDFS's scalability and its fault-tolerance, the storage of filesystem metadata in the namenode process main memory.
+Unlike HDFS, HopsFS stores the metadata in a distributed, consistent NewSQL database called Mysql Cluster, which can scale to hundreds of machines and store hundreds of terabytes of metadata.
+By moving the metadata in an external component, the namenode effectively becomes a (mostly) stateless process which can be easily replicated on multiple machines, all connecting to the same metadata storage cluster.
+Aside from a clear improvement in availability, all of the HopsFS datanodes can answer RPC requests traditionally directed towards the HDFS namenode, enabling horizontal scalability at the namenode layer.
+As demonstrated in \cite{niazi2016hopsfs} on a workload trace provided by Spotify, the improvements brought by the increased scalability allow HopsFS to perform 16 times the metadata operations in the same amount of time.
+Furthermore, the filesystem metadata is now accessible to other applications in a transactional SQL database, allowing other programs to consume and extend the model for their own purposes.
+% aggiungi citazione a buso qui
+
+While HopsFS solves most of Apache HDFS's problems related to running in the cloud, it is still limited to running within a single data-center (region).
+The goal of this work is to enable a single HopsFS filesystem to be geographically replicated in up to two regions for fault-tolerance, while allowing clients in each data-center to perform all operations.
+MySQL cluster fully supports geographical replication, but the resulting system propagates changes between regions asynchronously.
+The main objectives for this projects are therefore threefold:
+\begin{itemize}
+    \item investigate the properties of asynchronous replication in the metadata storage layer
+    \item define the changes in behavior to the filesystem as a result of this work, if any
+    \item implement the changes in HopsFS
+\end{itemize}
+The expected results is for the two regions to appear to clients as a single filesystem, while allowing clients in one data-center to keep working if the other data-center is unavailable for any reason.
+
+\subsection{Outline}
+Section \ref{sec:background} describes the main components involved in the project:
+\begin{inparaenum}
+\item HDFS, the understand of which is necessary to discuss the characteristics of the distributed filesystem
+\item HopsFS, in terms of the changes applied to HDFS to decouple the metadata storage and to allow multi-namenode architecture
+\item MySQL cluster and NDB, to understand the technology behind the metadata storage system with a focus on the geographic-replication features
+\end{inparaenum}
+
+Section \ref{sec:problem-definition} formally defines the problem that a multi-datacenter capable filesystem aims to solve and the desirable characteristics that we would like the final system to have.
+
+Section \ref{sec:implementation} discusses the various challenges involved in geo-replicating the metadata storage and their solutions with particular regard to the trade-offs in terms of filesystem behavior.
+
+Section \ref{sec:results} describes the results of the implementation work in terms of both capabilities and performance.
+
+Finally, section \ref{sec:conclusion} draws conclusions and describes future work.

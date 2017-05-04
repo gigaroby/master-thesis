@@ -1,0 +1,467 @@
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%                                                                %%
+%% An example for writting your thesis using LaTeX                %%
+%% Original version by Luis Costa,  changes by Perttu Puska       %%
+%% Support for Swedish added 15092014                             %%
+%%                                                                %%
+%% This example consists of the files                             %%
+%%         thesistemplate.tex (versio 2.01)                       %%
+%%         opinnaytepohja.tex (versio 2.01) (for text in Finnish) %%
+%%         aaltothesis.cls (versio 2.01)                          %%
+%%         kuva1.eps                                              %%
+%%         kuva2.eps                                              %%
+%%         kuva1.pdf                                              %%
+%%         kuva2.pdf                                              %%
+%%                                                                %%
+%%                                                                %%
+%% Typeset either with                                            %%
+%% latex:                                                         %%
+%%             $ latex opinnaytepohja                             %%
+%%             $ latex opinnaytepohja                             %%
+%%                                                                %%
+%%   Result is the file opinnayte.dvi, which                      %%
+%%   is converted to ps format as follows:                        %%
+%%                                                                %%
+%%             $ dvips opinnaytepohja -o                          %%
+%%                                                                %%
+%%   and then to pdf as follows:                                  %%
+%%                                                                %%
+%%             $ ps2pdf opinnaytepohja.ps                         %%
+%%                                                                %%
+%% Or                                                             %%
+%% pdflatex:                                                      %%
+%%             $ pdflatex opinnaytepohja                          %%
+%%             $ pdflatex opinnaytepohja                          %%
+%%                                                                %%
+%%   Result is the file opinnaytepohja.pdf                        %%
+%%                                                                %%
+%% Explanatory comments in this example begin with                %%
+%% the characters %%, and changes that the user can make          %%
+%% with the character %                                           %%
+%%                                                                %%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+%% Uncomment one of these:
+%% the 1st when using pdflatex, which directly typesets your document in
+%% pdf (use jpg or pdf figures), or
+%% the 2nd when producing a ps file (use eps figures, don't use ps figures!).
+\documentclass[english,12pt,a4paper,pdftex,sci,utf8]{aaltothesis}
+%\documentclass[english,12pt,a4paper,dvips]{aaltothesis}
+
+%% To the \documentclass above
+%% specify your school: arts, biz, chem, elec, eng, sci
+%% specify the character encoding scheme used by your editor: utf8, latin1
+
+\usepackage{graphicx}
+
+%% Use this if you write hard core mathematics, these are usually needed
+\usepackage{amsfonts,amssymb,amsbsy}
+
+\usepackage{paralist}
+
+%% Use the macros in this package to change how the hyperref package below 
+%% typesets its hypertext -- hyperlink colour, font, etc. See the package
+%% documentation. It also defines the \url macro, so use the package when 
+%% not using the hyperref package.
+%%
+%\usepackage{url}
+
+%% Use this if you want to get links and nice output. Works well with pdflatex.
+\usepackage{hyperref}
+\hypersetup{pdfpagemode=UseNone, pdfstartview=FitH,
+  colorlinks=true,urlcolor=red,linkcolor=blue,citecolor=black,
+  pdftitle={LenticularFS: scalable filesystem for the cloud},
+  pdfauthor={Roberto Bampi}, pdfkeywords={HDFS, filesystem}}
+
+
+%% All that is printed on paper starts here
+\begin{document}
+\renewcommand{\thesissupervisorname}{Thesis supervisors}
+
+%% Change the school field to specify your school if the automatically 
+%% set name is wrong
+% \university{aalto-yliopisto}
+% \university{aalto University}
+% \school{Sähkötekniikan korkeakoulu}
+% \school{School of Electrical Engineering}
+
+%% Only for B.Sc. thesis: Choose your degree programme. 
+%\degreeprogram{Electronics and electrical engineering}
+%%
+
+%% ONLY FOR M.Sc. AND LICENTIATE THESIS: Specify your department,
+%% professorship and professorship code. 
+%%
+\department{Department of Computer Science}
+%% \professorship{Circuit theory}
+%%
+
+\univdegree{MSc}
+
+%% Your own name (should be self explanatory...)
+\author{Roberto Bampi}
+
+%% Your thesis title comes here and again before a possible abstract in
+%% Finnish or Swedish . If the title is very long and latex does an
+%% unsatisfactory job of breaking the lines, you will have to force a
+%% linebreak with the \\ control character. 
+%% Do not hyphenate titles.
+%% 
+\thesistitle{LenticularFS: Scalable filesystem for the cloud}
+
+\place{Kista}
+
+%% For B.Sc. thesis use the date when you present your thesis. 
+%% 
+%% Kandidaatintyön päivämäärä on sen esityspäivämäärä! 
+\date{16.1.2015}
+
+%% B.Sc. or M.Sc. thesis supervisor 
+%% Note the "\" after the comma. This forces the following space to be 
+%% a normal interword space, not the space that starts a new sentence. 
+%% This is done because the fullstop isn't the end of the sentence that
+%% should be followed by a slightly longer space but is to be followed
+%% by a regular space.
+%%
+% \supervisor{Prof.\ Jim Dowling} %{Prof.\ Pirjo Professori}
+\supervisor{Prof.\ Keijo Heljanko}
+%% B.Sc. or M.Sc. thesis advisors(s). You can give upto two advisors in
+%% this template. Check with your supervisor how many official advisors
+%% you can have.
+%%
+\advisor{Prof.\ Jim Dowling}
+% \advisor{D.Sc.\ }
+% \advisor{M.Sc.\ }
+
+%% Aalto logo: syntax:
+%% \uselogo{aaltoRed|aaltoBlue|aaltoYellow|aaltoGray|aaltoGrayScale}{?|!|''}
+%%
+%% Logo language is set to be the same as the document language.
+%% Logon kieli on sama kuin dokumentin kieli
+%%
+\uselogo{aaltoRed}{''}
+
+%% Create the coverpage
+%%
+\makecoverpage
+
+
+%% Note that when writting your master's thesis in English, place
+%% the English abstract first followed by the possible Finnish abstract
+
+%% English abstract.
+%% All the information required in the abstract (your name, thesis title, etc.)
+%% is used as specified above.
+%% Specify keywords
+%%
+%% Kaikki tiivistelmässä tarvittava tieto (nimesi, työnnimi, jne.) käytetään
+%% niin kuin se on yllä määritelty.
+%% Avainsanat
+%%
+\keywords{}
+%% Abstract text
+\begin{abstractpage}[english]
+\end{abstractpage}
+
+%% Force a new page so that the possible English abstract starts on a new page
+%%
+%% Pakotetaan uusi sivu varmuuden vuoksi, jotta 
+%% mahdollinen suomenkielinen ja englanninkielinen tiivistelmä
+%% eivät tule vahingossakaan samalle sivulle
+\newpage
+%
+%% Abstract in Finnish.  Delete if you don't need it. 
+%% Preface
+%%
+%% Esipuhe 
+\mysection{Preface}
+%\mysection{Esipuhe}
+% I want to thank Professor Pirjo Professori
+% and my instructor Olli Ohjaaja for their 
+% good and poor guidance.\\
+
+\vspace{5cm}
+Otaniemi, 16.1.2015
+
+\vspace{5mm}
+{\hfill Eddie E.\ A.\ Engineer \hspace{1cm}}
+
+%% Force new page after preface
+%%
+%% Pakotetaan varmuuden vuoksi esipuheen jälkeinen osa
+%% alkamaan uudelta sivulta
+\newpage
+
+
+%% Table of contents. 
+\thesistableofcontents
+
+
+%% Tweaks the page numbering to meet the requirement of the thesis format:
+%% Begin the pagenumbering in Arabian numerals (and leave the first page
+%% of the text body empty, see \thispagestyle{empty} below).
+%% Additionally, force the actual text to begin on a new page with the 
+%% \clearpage command.
+%% \clearpage is similar to \newpage, but it also flushes the floats (figures
+%% and tables).
+%% There is no need to change these
+%%
+\cleardoublepage
+\storeinipagenumber
+\pagenumbering{arabic}
+\setcounter{page}{1}
+
+\section{Introduction}
+\label{section:intro}
+
+%% Leave first page empty
+\thispagestyle{empty}
+
+\input{chapter/intro}
+%% In a thesis, every section starts a new page, hence \clearpage
+\clearpage
+
+\section{Background}
+\label{sec:background}
+%% \section{osan otsikko} 
+%% \subsection{alaotsikko}
+%% \subsubsection{ala-alaotsikko}
+%% Three levels of hierarchy in sectioning should be enough
+\input{chapter/background}
+\clearpage
+
+\section{Problem definition}
+\label{sec:problem-definition}
+\input{chapter/problem-definition}
+\clearpage
+
+\section{Implementation}
+\label{sec:implementation}
+\input{chapter/implementation}
+\clearpage
+
+\section{Results}
+\label{sec:results}
+\input{chapter/results}
+\clearpage
+
+\section{Summary} 
+\label{sec:summary}
+\input{chapter/summary}
+\clearpage
+
+%% The \phantomsection command is nessesary for hyperref to jump to the 
+%% correct page, in other words it puts a hyper marker on the page.
+
+\phantomsection
+
+\bibliographystyle{abbrv}
+\bibliography{biblio}
+% \addcontentsline{toc}{section}{\refname}
+% %\addcontentsline{toc}{section}{References}
+% \begin{thebibliography}{99}
+% 
+% %% Alla pilkun j\"alkeen on pakotettu oikea v\"ali \<v\"alily\"onti>-merkeill\"a.
+% \bibitem{Kauranen} Kauranen,\ I., Mustakallio,\ M. ja Palmgren,\ V.
+%   \textit{Tutkimusraportin kirjoittamisen opas opinn\"aytety\"on
+%     tekij\"oille.}  Espoo, Teknillinen korkeakoulu, 2006.
+% 
+% \bibitem{Itkonen} Itkonen,\ M. \textit{Typografian k\"asikirja.} 3.\
+%   painos.  Helsinki, RPS-yhti\"ot, 2007.
+% 
+% \bibitem{Koblitz} Koblitz,\ N. \textit{A Course in Number Theory and
+%     Cryptography. Graduate Texts in Mathematics 114.}  2.\ painos. New
+%   York, Springer, 1994.
+% 
+% %% Kun on useampi nimikirjain, jokaisen nimikirjaimen v\"aliin
+% %% kuuluu v\"alily\"onti. Oikea v\"alin m\"a\"ar\"a on saatu \<v\"alily\"onnill\"a>
+% \bibitem{bcs} Bardeen,\ J., Cooper,\ L.\ N. ja Schrieffer,\ J.\ R.
+%   Theory of Superconductivity. \textit{Physical Review,} 1957, vol.\
+%   108, nro~5, s.\ 1175--1204.
+% 
+% \bibitem{Deschamps} Deschamps,\ G.\ A. Electromagnetics and
+%   Differential Forms. \textit{Proceedings of the IEEE,} 1981, vol.\
+%   69, nro~6, s.\ 676--696.
+% 
+% %% Alla esimerkki englanninkielisen tavuttamisen pakottamisesta.
+% %% Oletusarvoisesti k\"aytet\"a\"an suomalaista tavutusta, mutta viitteiss\"a
+% %% esiintyy usein muunkielisi\"a lauseita, jotka tulevat siten tavutetuksi
+% %% suomen kielen s\"a\"ant\"ojen mukaan. T\"am\"an voi korjata \foreignlanguage-
+% %% komennolla, jonka ensimm\"ainen parametri on vieraan kielen nimi ja toinen 
+% %% on vieraalla kielell\"a tavutettava teksti. 
+% \bibitem{Sihvola} Sihvola,\ A.\ et al.
+%   \foreignlanguage{english}{Interpretation of measurements of helix 
+%     and bihelix superchiral structures.}
+%   Teoksessa: Jacob,\ A.\ F. ja
+%   Reinert,\ J. (toim.) \textit{Bianisotropics '98 7th International
+%     Conference on Complex Media.}  Braunschweig, 3.--6.6.1998.
+%   Braunscweig, Technische Universit\"at Braunschweig, 1998, s.\
+%   317--320.
+% 
+% %% Alla on suomalainen yhdistelm\"asukunimi. Sen nimien v\"aliss\"a 
+% %% k\"aytet\"a\"an yhdysmerkki\"a l. tavuviivaa, kirjoitetaan -.
+% \bibitem{Lindblom} Lindblom-Yl\"anne,\ S. ja Wager,\ M.  Tieteellisten
+%   opinn\"aytet\"oiden ohjaaminen. Teoksessa: Lindblom-Yl\"anne,\ S. ja
+%   Nevgi,\ A. (toim.) \textit{Yliopisto- ja korkeakouluopettajan
+%     k\"asikirja.}  Helsinki, WSOY, 2004, s.\ 314--325.
+%  
+% \bibitem{Miinusmaa} Miinusmaa,\ H. Neliskulmaisen rei\"an poraamisesta
+%   kolmikulmaisella poralla. Diplomity\"o, Teknillinen korkeakoulu,
+%   konetekniikan osasto, Espoo, 1977.
+% 
+% %% T\"ass\"a taas pakotettu englanninkielinen tavutus. 
+% %% Pedanttinen kirjoittaja pakottaa tietysti jokaiseen englanninkieliseen
+% %% lauseeseen englannin tavutuksen, mutta t\"ass\"a esityksess\"a ei n\"ain ole
+% %% tehty selvyyden ja l\"ahdekoodin luettavuuden takia. 
+% \bibitem{Loh} Loh,\ N.\ C. High-Resolution Micromachined
+%   Interferometric Accelerometer. Master's Thesis, Massachusetts
+%   Institute of Technology, Cambridge,
+%   \foreignlanguage{english}{Massachusetts,} 1992.
+% 
+% \bibitem{Lonnqvist} L\"onnqvist,\ A.
+%   \foreignlanguage{english}{Applications of hologram-based compact
+%     range: antenna radiation pattern, radar cross section, and
+%     absorber reflectivity measurements.}
+%   V\"ait\"oskirja, Teknillinen korkeakoulu, s\"ahk\"o- ja tietoliikennetekniikan
+%   osasto, 2006.
+% 
+% \bibitem{sfs} SFS 5342. Kirjallisuusviitteiden laatiminen. 2.\ painos.
+%   Helsinki, Suomen standardisoimisliitto, 2004. 20~s.
+% 
+% \bibitem{haastattelu} Palmgren,\ V. Suunnittelija. Teknillinen
+%   korkeakoulu, kirjasto. Otaniementie 9, 02150 Espoo. Haastattelu
+%   15.1.2007.
+% 
+% \bibitem{Ribeiro} Ribeiro,\ C.\ B., Ollila,\ E. ja Koivunen,\ V.
+%   \foreignlanguage{english}{Stochastic Maximum-Likelihood Method for
+%     MIMO Propagation Parameter Estimation.}
+%  \textit{IEEE Transactions
+%     on Signal Processing,} verkkolehti, vol.\ 55, nro~1, s.\ 46--55.
+%   Viitattu 19.1.2007. Lehti ilmestyy my\"os painettuna. DOI:
+%   10.1109/TSP.2006.882057.
+% 
+% \bibitem{Stieber} Stieber,\ T. GnuPG Hacks. \textit{Linux Journal,}
+%   verkkolehti, 2006, maaliskuu, nro~143. Viitattu 19.1.2007. Lehti
+%   ilmestyy my\"os painettuna. Saatavissa:
+%   \url{http://www.linuxjournal.com/article/8732.}
+% 
+% \bibitem{kone} Pohjois-Koivisto,\ T. Voiko kone tulevaisuudessa arvata
+%   tahtosi?  \textit{Apropos,} verkkolehti, helmikuu, nro~1, 2005.
+%   Viitattu 19.1.2007.  Saatavissa:
+%   \url{http://www.apropos.fi/1-2005/prima.php.}
+% 
+% \bibitem{Adida} Adida,\ B.  Advances in Cryptographic Voting Systems.
+%   Verkkodokumentti. Ph.D.\ Thesis, Massachusetts Institute of
+%   Technology, Cambridge, 
+%   \foreignlanguage{english}{Massachusetts,}
+%   2006. Viitattu 19.1.2007.  Saatavissa:
+%   \url{http://crypto.csail.mit.edu/~cis/theses/adida-phd.pdf.}
+% 
+% \bibitem{viittaaminen} Kilpel\"ainen,\ P. WWW-l\"ahteisiin viittaaminen
+%   tutkielmatekstiss\"a. Verkkodokumentti. P\"aivitetty 26.11.2001.
+%   Viitattu 19.1.2007. Saatavissa:
+%   \url{http://www.cs.uku.fi/~kilpelai/wwwlahteet.html.}
+% 
+% \end{thebibliography}
+
+%% Appendices
+%% Liitteet
+% \clearpage
+% 
+% \thesisappendix
+% 
+% \section{Esimerkki liitteest\"a\label{LiiteA}}
+% 
+% Liitteet eiv\"at ole opinn\"aytteen kannalta v\"altt\"am\"att\"omi\"a ja 
+% opinn\"aytteen tekij\"an on 
+% kirjoittamaan ryhtyess\"a\"an hyv\"a ajatella p\"arj\"a\"av\"ans\"a ilman liitteit\"a.
+% Kokemattomat kirjoittajat, jotka ovat huolissaan
+% tekstiosan pituudesta, paisuttavat turhan 
+% helposti liitteit\"a pit\"a\"akseen tekstiosan pituuden annetuissa rajoissa.
+% T\"all\"a tavalla ei synny hyv\"a\"a opinn\"aytett\"a.   
+% 
+% Liite on itsen\"ainen kokonaisuus, vaikka se t\"aydent\"a\"akin tekstiosaa.
+% Liite ei siten ole pelkk\"a listaus, kuva tai taulukko, vaan 
+% liitteess\"a selitet\"a\"an aina sis\"all\"on laatu ja tarkoitus. 
+% 
+% Liitteeseen voi laittaa esimerkiksi listauksia. Alla on 
+% listausesimerkki t\"am\"an liitteen luomisesta. 
+% 
+% %% Verbatim-ymp\"arist\"o ei muotoile tai tavuta teksti\"a. Fontti on monospace.
+% %% Verbatim-ymp\"arist\"on sis\"all\"a annettuja komentoja ei LaTeX k\"asittele. 
+% %% Vasta \end{verbatim}-komennon j\"alkeen jatketaan k\"asittely\"a.
+% \begin{verbatim}
+% 	\clearpage
+% 	\appendix
+% 	\addcontentsline{toc}{section}{Liite A}
+% 	\section*{Liite A}
+% 	...
+% 	\thispagestyle{empty}
+% 	...
+% 	teksti\"a
+% 	...
+% 	\clearpage
+% \end{verbatim}
+% 
+% Kaavojen numerointi muodostaa liitteiss\"a oman kokonaisuutensa:
+% \begin{eqnarray}
+% d \wedge A  &=& F, \label{liitekaava1}\\
+% d \wedge F  &=& 0. \label{liitekaava2}
+% \end{eqnarray}
+% 
+% 
+% \clearpage
+% \section{Toinen esimerkki liitteest\"a\label{LiiteB}}
+% 
+% %% Liitteiden kaavat, taulukot ja kuvat numeroidaan omana kokonaisuutenaan
+% %%
+% %% Equations, tables and figures have their own numbering in Appendices
+% %\renewcommand{\theequation}{B\arabic{equation}}
+% %\setcounter{equation}{0}  
+% %\renewcommand{\thefigure}{B\arabic{figure}}
+% %\setcounter{figure}{0}
+% %\renewcommand{\thetable}{B\arabic{table}}
+% %\setcounter{table}{0}
+% 
+% Liitteiss\"a voi my\"os olla kuvia, jotka
+% eiv\"at sovi leip\"atekstin joukkoon:
+% %% Ymp\"arist\"on figure parametrit htb pakottavat
+% %% kuvan t\"ah\"an, eik\"a LaTeX yrit\"a siirrell\"a niit\"a
+% %% hyv\"aksi katsomaansa paikkaan. 
+% %% Ymp\"arist\"o\"a center voi k\"aytt\"a\"a \centering-
+% %% komennon sijaan
+% %%
+% %% Example of a figure, note the use of htb parameters which force
+% %% the figure to be inserted here
+% \begin{figure}[htb]
+% \begin{center}
+% \includegraphics[height=8cm]{kuva2}
+% \end{center}
+% \caption{Kuvateksti, jossa on liitteen numerointi}
+% \label{liitekuva}
+% \end{figure}
+% %%
+% Liitteiden taulukoiden numerointi on kuvien ja kaavojen kaltainen:
+% \begin{table}[htb]
+% \caption{Taulukon kuvateksti.}
+% \label{liitetaulukko}
+% \begin{center}
+% \fbox{
+% \begin{tabular}{lp{0.5\linewidth}}
+% 9.00--9.55  & K\"aytett\"avyystestauksen tiedotustilaisuus (osanottajat
+% ovat saaneet s\"ahk\"opostitse valmistautumisteht\"av\"at, joten tiedotustilaisuus
+% voidaan pit\"a\"a lyhyen\"a).\\
+% 9.55--10.00 & Testausalueelle siirtyminen
+% \end{tabular}}
+% \end{center}
+% \end{table}
+% Kaavojen numerointi muodostaa liitteiss\"a oman kokonaisuutensa:
+% \begin{eqnarray}
+% T_{ik} &=& -p g_{ik} + w u_i u_k + \tau_{ik},  \label{liitekaava3} \\
+% n_i    &=& n u_i + v_i.                      \label{liitekaava4}
+% \end{eqnarray}
+% 
+\end{document}
+% 

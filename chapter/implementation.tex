@@ -1,0 +1,30 @@
+This chapter introduces the adaptations to HopsFS to allow multi-DC operation possible.
+
+\subsection{System behavior}
+Detail the desired behavior of the system both in normal operating conditions and during data-center failure/network partition.
+
+\subsection{Split brain detection}
+Failure detector: 
+\textit{http://dl.acm.org/citation.cfm?id=226647}
+
+\subsection{Database replication}
+Explain how replication was configured on the MySQL Cluster clusters.
+\subsubsection{Access patterns}
+Detail access patterns to different tables on the database and the required consistency characteristics.
+\begin{itemize}
+    \item access on master: leases and leader election require consistency
+    \item conflict avoidance: if the primary key is a numeric ID we can avoid conflicts by assigning even/odd ids to different clusters
+    \item conflict handling: for inodes we can handle conflict by renaming files
+\end{itemize}
+
+Pending problems: handling of leases during DC failure/network partition is still being discussed.
+
+\subsubsection{MySQL HA Setup}
+Explain how to make async replication hihghly available (in current model, replication channel failure is interpreted as network partition).
+
+\subsection{Leader election}
+Modifications to the leader election process to detect network partitions.
+\subsection{Data Access Layer}
+Changes to the data access layer to accomodate for the new data access patterns described above.
+\subsection{Block placement policy}
+Changes to the block placement policies and block recovery both during normal operations and during network partition/datacenter failure.
