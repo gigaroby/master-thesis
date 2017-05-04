@@ -147,7 +147,7 @@ Storing metadata in the JVM heap is also problematic due to increasingly long ga
 
 
 \subsection{HopsFS}
-HopsFS \cite{niazi2016hopsfs} is a fork of Apache HDFS created with the explicit goal of solving the biggest scalability and availability limits that are intrinsic to the single-namenode nature of the system: 
+HopsFS \cite{DBLP:conf/fast/NiaziIHDGR17} is a fork of Apache HDFS created with the explicit goal of solving the biggest scalability and availability limits that are intrinsic to the single-namenode nature of the system: 
 \begin{inparaenum}[i)]
     \item amount of metadata limited by the main memory of the machine running the namenode process
     \item number and speed of processors in the machine
@@ -168,22 +168,35 @@ Unlike memory-managed applications, MySQL Cluster also does not suffer from garb
 \subsubsection{Multi-namenode architecture}
 The namenode, which is now a client of the metadata storage system, performs metadata queries, both in terms of reading and modifying, using an interface called the (meta)Data Access Layer or DAL, which internally connects to the distributed storage system in an efficient fashion.
 This allows multiple HopsFS namenodes to run in parallel, each serving a subset of the client requests to the overall system.
+The architecture of the resulting system is shown in figure \ref{fig:hopsfs-architecture}.
+
 While most client operations can be directed to any one namenode, the block reports from datanodes and the daemon threads must be handled carefully.
 In a Apache HDFS namenode, background daemon threads are responsible for a variety of functions including block re-balancing and lease recovery.
 If allowed to run on every node in the cluster, these daemon threads would interfere with each other's work, causing unpredictable results.
 To maintain the behaviour of Apache HDFS, HopsFS must guarantee that only one node in the cluster executes daemon threads at any given time.
-To this end namenodes participate in a leader election algorithm that will elect a single namenode at any given time.
-Additionally, the leader election procedure serves as failure detector within the set of namenodes, allowing clients to retrieve a list of active nodes.
-% talk about leader here, to be explained in the next section
+To this end, all namenodes active in a cluster participate in a leader election algorithm, explained in detail in section \ref{sec:leader-election}, that will elect a single namenode to be leader at any given time.
+Additionally, the leader election procedure serves as \emph{failure detector} within the set of namenodes, allowing clients to retrieve a list of live nodes.
+Datanodes fetch an updated list of active namenodes before every heartbeat messages, allowing them to keep an updated view of participants in the cluster and the current leader node's identity.
 As metadata about the state of datanodes, the action they should execute, and the blocks they contain is stored in MySQL Cluster, any namenode can process heartbeats or block reports from any datanode.
-To select which namenode to send heartbeats (1) and block reports to (2), the datanode follows two different procedures: \begin{inparaenum}[1)]
-\item ask the leader for a list of live namenode and then send heartbeats in a round-robin fashion
-\item ask the leader for the least loaded namenode and send the block report to that
-\end{inparaenum}.
+Heartbeats are sent by the datanodes to different namenodes in a round-robin fashion, while the namenode to send block reports to is obtained by performing a RPC call to the leader.
+The leader will assign the block report to a namenode that has the capacity to process it and has the lowest number of block reports to process at the moment where the RPC is sent.
 
-\subsubsection{Leader Election}
-\subsubsection{external metadata storage}
-\subsubsection{metadata data access layer (DAL)}
+\begin{figure}[h]
+\caption{Architecture diagram of HopsFS. The metadata storage engine is provided by MySQL Cluster}
+\label{fig:hopsfs-architecture}
+\centering
+\includegraphics[width=0.9\textwidth]{images/placeholder.png}
+\end{figure}
+
+\subsubsection{Group membership service and leader election}
+\label{sec:leader-election}
+As previously mentioned, HopsFS maintains a list of active namenodes in the system and elects one leader which executes functions critical to the proper functioning of the overall system.
+Apache HDFS, when configured in High Availability mode (HA) also require such a system and leverages Zookeeper to perform these functions.
+HopsFS eliminates the reliance on Zookeeper by leveraging the metadata storage system as shared memory and implementing reliable failure detection \footnote{cite failure detection paper here} and leader election \cite{DBLP:conf/dais/NiaziIBD15} using MySQL Cluster's engine (NDB).
+
+
+\subsubsection{The metaData Access Layer}
+
 
 \subsection{MySQL Cluster and NDB}
 \subsubsection{Asynchronous replication for MySQL (binlogging)}
