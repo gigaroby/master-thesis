@@ -1,0 +1,10 @@
+dependencies:
+  pre:
+    - sudo apt-get install texlive-full latexmk
+
+test:
+  pre:
+    - latexmk -C main.tex
+
+  post:
+    - cp main.pdf $CIRCLE_ARTIFACTS/thesis.pdf
