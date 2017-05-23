@@ -33,12 +33,12 @@ Eventually consistent systems propagate changes in the system asynchronously whi
 To allow these systems to offer consistency semantics equal to those of HDFS, some cloud providers, such as Amazon for their managed Hadoop offer (EMR), build additional software that expose a HDFS-compliant API while managing metadata in such a way that the overall system appears to have consistent metadata.
 The trade-offs are that this approach introduces further components that need to be managed and scaled, it worsens performance of the overall system because of the wait times required for the changes to propagate through the system, and it introduces the possibility of the metadata store becoming inconsistent with the underlying data store.
 
-To solve the mismatch of HDFS with cloud environments, the Hops project provides a scalable, cloud-ready, protocol-compatible distribution of HDFS called HopsFS.
+To solve the mismatch of HDFS with cloud environments, the Hops project provides a scalable, cloud-ready, protocol-compatible distribution of HDFS called HopsFS \cite{DBLP:conf/dais/NiaziIBD15}.
 HopsFS solves the biggest architectural problem that limits both HDFS's scalability and its fault-tolerance, the storage of filesystem metadata in the namenode process main memory.
 Unlike HDFS, HopsFS stores the metadata in a distributed, consistent NewSQL database called Mysql Cluster, which can scale to hundreds of machines and store hundreds of terabytes of metadata.
 By moving the metadata in an external component, the namenode effectively becomes a (mostly) stateless process which can be easily replicated on multiple machines, all connecting to the same metadata storage cluster.
 Aside from a clear improvement in availability, all of the HopsFS datanodes can answer RPC requests traditionally directed towards the HDFS namenode, enabling horizontal scalability at the namenode layer.
-As demonstrated in \cite{niazi2016hopsfs} on a workload trace provided by Spotify, the improvements brought by the increased scalability allow HopsFS to perform 16 times the metadata operations in the same amount of time.
+As demonstrated in \cite{DBLP:conf/dais/NiaziIBD15} on a workload trace provided by Spotify, the improvements brought by the increased scalability allow HopsFS to perform 16 times the number of metadata operations in the same amount of time.
 Furthermore, the filesystem metadata is now accessible to other applications in a transactional SQL database, allowing other programs to consume and extend the model for their own purposes.
 % aggiungi citazione a buso qui
 
@@ -47,9 +47,9 @@ The goal of this work is to enable a single HopsFS filesystem to be geographical
 MySQL cluster fully supports geographical replication, but the resulting system propagates changes between regions asynchronously.
 The main objectives for this projects are therefore threefold:
 \begin{itemize}
-    \item investigate the properties of asynchronous replication in the metadata storage layer
+    \item investigate the properties of asynchronous replication in the metadata storage layer, MySQL Cluster
     \item define the changes in behavior to the filesystem as a result of this work, if any
-    \item implement the changes in HopsFS
+    \item begin the implementation of the required changes in HopsFS
 \end{itemize}
 The expected results is for the two regions to appear to clients as a single filesystem, while allowing clients in one data-center to keep working if the other data-center is unavailable for any reason.
 
@@ -58,10 +58,12 @@ Section \ref{sec:background} describes the main components involved in the proje
 \begin{inparaenum}
 \item HDFS, the understand of which is necessary to discuss the characteristics of the distributed filesystem
 \item HopsFS, in terms of the changes applied to HDFS to decouple the metadata storage and to allow multi-namenode architecture
-\item MySQL cluster and NDB, to understand the technology behind the metadata storage system with a focus on the geographic-replication features
+\item MySQL Cluster and NDB, to understand the technology behind the metadata storage system
 \end{inparaenum}
 
 Section \ref{sec:problem-definition} formally defines the problem that a multi-datacenter capable filesystem aims to solve and the desirable characteristics that we would like the final system to have.
+
+Section \ref{sec:similar-systems} analyzes other distributed file systems and their approach to metadata replication.
 
 Section \ref{sec:implementation} discusses the various challenges involved in geo-replicating the metadata storage and their solutions with particular regard to the trade-offs in terms of filesystem behavior.
 
