@@ -1,0 +1,146 @@
+\subsection{MySQL Cluster}
+HopsFS delegates the storage and querying of metadata to an external database called MySQL Cluster.
+MySQL Cluster is a in-memory, distributed, consistent, relational database management system (RDBMS) currently developed by Oracle.
+The sources for the system are released under the terms of the GNU General Public License (GPL), but development is driven by Oracle without external contributors.
+MySQL Cluster is the combination of the MySQL relational database management system and a distributed table storage system called Network DataBase (NDB).
+As such, any program that is able to use MySQL as the database can be migrated on a MySQL Cluster system with minimal modifications.
+
+\subsubsection{Network DataBase}
+NDB is a in-memory share-nothing database which runs as a distributed application on a set of nodes.
+Its share-nothing architecture relies on message passing between nodes participating in the cluster instead of disk or memory sharing like other distributed databases.
+Furthermore, unlike traditional databases, NDB holds all data for tables in main memory.
+Each NDB cluster contains two sets of nodes: \begin{inparaenum}[i)]
+    \item data nodes, \texttt{ndbd} and \texttt{ndbmtd}, which contain the data for tables and participate in queries and commit protocols
+    \item management nodes, \texttt{ndbmgmt}, which provide parameters to data nodes in order to form and maintain clusters and, typically, act as \emph{arbitrators} during split brain protocol 
+\end{inparaenum}.
+In NDB tables are divided into \emph{partitions} and partitions are assigned to node groups.
+In order to compute the partition any row belongs to, the default strategy is to take the hash of the primary key modulo the number of node groups, tough this behaviour can be modified at table creation time.
+The system can be configured, by tuning parameters in the management node(s), to replicate each data partition multiple times.
+Aside from creating redundancy in case of data node failure, multiple data nodes will be able to serve reads for the partitions stored in the node group, linearly increasing the number of read queries per second that the system can serve.
+If replication is set to one, only one copy of the data is available in the system and, if the data node storing the partition fails, the data is permanently lost.
+If replication is set to a value higher than one the cluster is divided in logical units called node groups.
+The number of node groups $N_g$ formed is controlled by $N_g = \frac{N_t}{R}$ where $N_t$ is the total number of data nodes in the system and $R$ is the replica factor.
+This also implies that, by setting the replica factor $R$, the number of datanodes in the cluster must necessarily be a multiple of $R$ itself.
+Every write for a data partition will be replicated on every node in the assigned replica group so that, in case of failure of any node, the system will still be able to serve all the requests, albeit at a slower rate.
+Image \ref{img:node-groups} shows an example scenario for a cluster with $N_t = 12$ and $R = 3$.
+
+In order to provide clients with synchronous transaction, which maintain data consistency, NDB employes a two phase commit protocol (2PC) when committing transactions.
+A 2PC protocol run is divided into two phases: \begin{inparaenum}
+    \item a \emph{prepare} phase, where nodes execute the operations specified in the transaction and prepare for a commit
+    \item a \emph{commit} phase, where nodes commit the operation
+\end{inparaenum}.
+After a successful \emph{commit} phase, the data is durable and cannot be rolled back by any node.
+To initiate a transaction, a client contacts any data node.
+Data nodes contain a \emph{transaction coordinator} process, which identifies the partitions involved in the transaction and initiates the 2PC protocol.
+If any node involved in the transaction fails, the transaction coordinator will abort the transaction after a short timeout of 5 seconds by default.
+Clients of the system are expected to handle transaction failure, and the typical strategy is for the client to retry the transaction at a later time.
+
+To detect failures, data nodes arrange themselves in a virtual ring and send heartbeat messages to the next node in the circle.
+If one node fails to acknowledge a heartbeat three consecutive times, it is considered failed and the cluster enters a split brain protocol, during which it is not able to accomplish any work.
+The purpose of a split brain protocol is to identify and designate a subset of nodes in the cluster that still have a complete copy of all partitions and can therefore continue to function, albeit in a degraded fashion.
+To identify the \emph{sub-cluster} that continues to function, each sub-cluster executes a series of checks: \begin{itemize}
+    \item if the sub-cluster includes all nodes from any node group, this is the only possible functional sub-cluster and can \textbf{continue to operate}
+    \item if the sub-cluster does not contain at least one node in each node group, this sub-cluster is not functional and can \textbf{shut-down}
+    \item if the above conditions are both false, there is more than one functional sub-cluster, \textbf{defer the decision to an arbitrator}
+\end{itemize}
+In order to avoid a split brain scenario, where two or more subsets of the cluster continue to apply diverging modifications to the data in parallel, the arbitrator allows only one of the functioning clusters to continue.
+The arbitrator select only one cluster by only replying positively to the first subset contacting it, instructing all following sub-clusters to shutdown.
+If a sub-cluster cannot contact the arbitrator within a predefined amount of time, it shuts itself down, guaranteeing that \emph{at most} one sub-cluster will be live during split brain protocol.
+The role of arbitrator can be fulfilled by both management nodes and SQL nodes, which are explained below, but management nodes have higher priority compared to SQL nodes.
+Given that, without an arbitrator the whole cluster fails upon failure of a single node, more than one node can fulfill the role of arbitrator, albeit not at the same time.
+If an arbitrator fails during normal cluster operations, the datanodes agree on another, selected from a list of arbitrators and associated priorities.
+This list is specified at cluster configuration time and can only be updated by a management node by applying a configuration change.
+All the nodes that shut down as part of the split brain protocol must re-join the cluster through a management node upon restarting.
+It is worthy to note that, while the cluster is effectively able to access all data in the aftermath of a split brain protocol, the reduced capacity of one or more node groups can cause load spikes for the nodes that are left.
+
+\textbf{TODO: add scenarios with one node failure and actual split brain with arbitrator intervention}.
+
+NDB data nodes store all partition data in main memory.
+In case of data node shutdown, either planned or unplanned, all the partitions on the node are lost.
+While a restore procedure can, in principal, fetch copies of the partitions from other data nodes in the same node group this will either \begin{inparaenum}[1)]
+    \item take a very long time if the goal is to minimize the impact on the other working nodes in the node group
+    \item consume most of the bandwidth on the working nodes left in the node group, further worsening the strain caused by a reduced number of nodes in the group
+\end{inparaenum}.
+To limit the amount of bandwidth required by a node restore procedure, data nodes periodically checkpoint state to durable storage.
+Checkpoints to durable storage are achieved by periodically flushing to disk a log, called the \emph{REDO} log, which contains all the transactions committed between the last flush and now.
+To obtain a consistent snapshot of the system, one where no committed transactions have a dependency on uncommitted transactions, all the data nodes coordinate using a global checkpoint protocol (GCP).
+GCP enables data nodes to flush REDO logs in such a way that the resulting snapshot is globally consistent.
+Due to the way the REDO log stores changes, without any other mechanisms to limit its growth, the on-disk snapshot would effectively grow without bounds.
+To prevent this, data nodes also run a local checkpoint (LCP), which persists a snapshot of the state of the partitions in the system to durable storage.
+With a complete snapshot available, the node can discard the portion of REDO log coming before the local snapshot, as in case of restore the local state is used to reconstruct the in-memory state of partitions.
+In case of restore a data node \begin{inparaenum}[i)]
+    \item loads the most recent local checkpoint
+    \item applies all the transactions from the REDO logs
+    \item requests the newest transactions from other nodes in the group
+\end{inparaenum}.
+By using a combination of LCP and REDO log, the node therefore reduces the amount of data to transfer from a complete snapshot to only some transactions.
+The above techniques only help if the node starts the restore relatively promptly as the local snapshots will be quickly invalidated when other nodes erase theis REDO logs to create a newer LCP.
+
+
+\subsubsection{SQL Nodes}
+SQL nodes are MySQL server instances that can create and interact with tables using the \texttt{NDBCLUSTER} engine.
+Tables created with such an engine are stored on a NDB cluster.
+SQL nodes participate in the cluster as clients and can also be elected arbitrators, tough usually with lower priority compared to management nodes.
+Any number of SQL nodes can be connected to the same NDB cluster to better distribute the load and increase the availability of the service for MySQL clients.
+While MySQL server itself is modified to connect and participate in an NDB cluster, clients can connect using standard MySQL client libraries, which allows unmodified applications to take advantage of the scalability and performance benefits of MySQL Cluster.
+
+
+\subsubsection{Geographic clusters}
+While a single NDB cluster offers strong consistency and good performance in the context of a data-center network, MySQL cluster also offers a variety of options to extend a cluster to more than one data-center.
+
+The obvious solution to the problem of geographic clusters would be to set up data nodes in all locations and join them in a single cluster the same way it would be done in a single data-center.
+This is not, however, a viable solution in most scenarios due to both assumptions in NDB and in the way data-center networks are designed.
+NDB assumes all data nodes are running in a interconnected network where the latency and bandwidth to contact any other node in the cluster is generally constant, and it leverages this assumption to provide on-line transaction processing typical of a online transaction processing system (OLTP).
+Timeouts for transactions are very short (5 seconds by default) and the failure detection mechanic is also sensitive to increased latency as it may confuse a latency spike with node failure.
+A multi-data center network, on the other hand, would have very low latency and high bandwidth between nodes in the same data-center but comparatively higher latency and lower bandwidth between nodes in different locations.
+Furthermore, connections between nodes in different locations would all share very few channels, while internal data-center networks tend to be very well connected.
+
+The better alternative for geographical replication in MySQL Cluster is to use asynchronous replication features built into MySQL.
+Asynchronous replication techniques are used in standard SQL databases such as MySQL and PostgreSQL to achieve a variety of functions such as performing analytics without compromising the database running online processing or creating standby replicas, ready to be promoted should the master fail.
+In asynchronous replication a node referred to as master publishes a log-like stream of operations it executed, in the order they were executed.
+A set of other nodes, referred to as slaves or followers, consume the log of operations and apply the same operation to the local representation of the data.
+The state of followers is therefore consistent with the state of the master at some point in the past, even in case of master failure.
+This technique is asynchronous because the master does not wait for followers before reporting success to the client, thus maintaining the low latency operational characteristic of a online database.
+High latency only affects this process in that the state of followers on high-latency links will lag further behind the master's state.
+In the MySQL Cluster system, asynchronous replication and the conflict detection and resolution functions associated, which are illustrated later, are delegated to SQL nodes which propagate events to other SQL nodes and apply the necessary changes to the tables in NDB.
+This technique is used to implement many different systems, depending on the application's requirements.
+
+\paragraph{Master-follower}
+A very common technique used to implement replication in systems where write traffic is mostly constant but read traffic is variable, is to have a simple single master/multiple follower system (shown in figure \ref{fig:master-follower}), where write traffic is only directed to the master and read traffic can go to any of the available followers.
+Such a system offers eventual consistency semantics for reads as followers may serve an outdated view of the master's state.
+If a stronger consistency level is required, for instance by a client which needs a read-your-writes level of consistency, the only solution is to perform such reads on the master node.
+While this system is relatively simple to implement and operate it is unsuitable for systems where write traffic (or consistent read traffic) increases to the point where it can no longer be handled by a single master.
+
+\paragraph{Balanced master-follower}
+A solution which allows better scaling of write traffic is the so called Balanced master-follower or Partitioned Active/Active scheme.
+In this scenario all of the nodes are configured as master for some partition of the data, while they act as followers for all other partitions, as shown in figure \ref{fig:balanced-master-follower}.
+Given that master or follower in this case is ambiguous we refer to nodes as either active or passive for a given partition.
+Data partitioning can be done at the database, table or even row level, depending on the application.
+The application is also responsible for selecting a partitioning scheme that distributes load evenly on all partitions.
+Aside from increased complexity in the application, the system also requires a sophisticated routing system which guarantees that write operations always access the correct node which is active for the partition.
+Fail over also requires care as one of the nodes may become overloaded if it becomes active for too many partitions.
+While this system improves on the write scalability limits posed by the master-follower design, it still requires complex routing to perform writes.
+The routing is necessary so that, when two applications try to write conflicting data, the writes are effectively serialized at the active partition, which will reject one of the two writes thus implementing consistent writes.
+
+\paragraph{Optimistic Active Active}
+In many parallel applications, conflicting operations are relatively rare, when compared to the total volume of write traffic.
+While pessimistic systems such as master-follower or balanced master-follower simply make it impossible for write conflicts to happen, at the expense of limited write scalability or more complex routing logic, optimistic systems handle conflicts as they arise.
+The core principal behind this assumption is that, while handling conflicts may be expensive, it is a very rare operation and the total cost is therefore inferior to the constant cost of serializing writes in a master/active node.
+An optimistic active active replication system, shown in figure \ref{fig:optimistic-active-active}, allows write traffic on any node part of the cluster.
+When a transaction is committed, it is propagated asynchronously to the other nodes which will check for conflicts. If a conflict is detected it is rolled back.
+Clients of such a system must accept that they may read data which is stale or not durable because it may be rolled back, but the overall system is much more scalable and does not require complex routing as both reads and writes can be executed at any node.
+
+\paragraph{Hybrid Optimistic Active Active}
+A hybrid optimistic active active system, shown in figure \ref{fig:hybrid-optimistic-active-active} works like its purely optimistic counterpart with the additional advantage of defining an active node for each partition.
+Writes performed on the active node for the partition will be durable and will not be rolled back, while writes on other nodes will be rolled back if they are in conflict with those originating on the active node.
+This system still enables the benefits of the optimistic active active scheme, by routing traffic to the passive nodes while allowing applications that require write consistency or read-your-write semantics to be routed to the active node for the partition.
+
+\subsubsection{Dealing with conflicts in optimistic configurations}
+Optimistic systems require the ability to detect conflicting updates and reject them in order to avoid diverging replica states.
+Rejection is not, however, the only strategy to avoid diverging replica states, as many conflict can instead be merged by the application depending on specific application logic.
+In the simple case of a numeric value which is set to 1 and is incremented by 1 on each replica, rejecting one of the updates would result in a value of $2$ but an application could merge the conflicting updates, producing a correct value of 3.
+
+MySQL Cluster provides a sophisticated mechanism to both detect and resolve (merge) conflicts in a optimistic active active replication scheme.
+All of the available methods are documented in the MySQL Cluster documentation website \cite{mysql-cluster-documentation-replication}, but this section gives an overview of the \texttt{NDB\$EPOCH} family of merging functions, which can detect and resolve conflicts at a transaction level.
+The \texttt{NDB\$EPOCH} functions can only be applied in the context of a hybrid optimistic active active system with two replicating clusters as shown in figure \ref{fig:two-active-active-clusters}.
+

@@ -1,0 +1,62 @@
+\subsection{HopsFS}
+HopsFS \cite{DBLP:conf/fast/NiaziIHDGR17} is a fork of Apache HDFS created with the explicit goal of solving the biggest scalability and availability limits that are intrinsic to the single-namenode nature of the system: 
+\begin{inparaenum}[i)]
+    \item amount of metadata limited by the main memory of the machine running the namenode process
+    \item number and speed of processors in the machine
+    \item amount and latency of bandwidth between the namenode and its clients
+    \item coarse grained locking that requires a global lock to alter any piece of metadata
+    \item long garbage collection pauses can block the entire process for long periods of time as heap grows
+\end{inparaenum}
+To do so, HopsFS decouples the responsibility of managing metadata from the namenode and places it in a separate distributed system called MySQL Cluster.
+MySQL Cluster is a distributed, consistent (CP), in-memory relational database management system (RDMS) that can be operated and scaled independently from the hadoop cluster(s) it stores metadata for.
+Data stored in MySQL Cluster's distributed storage engine (NDB), is divided between nodes participating in the cluster, allowing capacity to be increased by adding more machines to the cluster.
+Unlike more traditional RDBMS, where data is stored on disk and only loaded in memory at query time, data in MySQL Cluster is stored in-memory and persisted to disk as a recovery mechanism, allowing very fast query execution.
+By moving metadata to such a system, all of the issues regarding the memory limitations of a single system are automatically solved.
+The gains are even more significant with regards to the amount of queries per seconds that the system can manage.
+Decoupling metadata management from the namenode makes it a stateless component, which can be horizontally scaled and enables downtime-free failover, which is described in the following section.
+Furthermore, compared with the approach of having a global lock for all metadata, a relational system \footnote{describe relational database, concept of row and lock on a row} such as MySQL Cluster can have much more fine grained locks allowing, for instance, parallel modification of the information of any number of different files.
+Unlike memory-managed applications, MySQL Cluster also does not suffer from garbage collection pauses, avoiding the pitfall in performance as the amount of managed metadata grows larger.
+
+\subsubsection{Multi-namenode architecture}
+The namenode, which is now a client of the metadata storage system, performs metadata queries, both in terms of reading and modifying, using an interface called the (meta)Data Access Layer or DAL, which internally connects to the distributed storage system in an efficient fashion.
+This allows multiple HopsFS namenodes to run in parallel, each serving a subset of the client requests to the overall system.
+The architecture of the resulting system is shown in figure \ref{fig:hopsfs-architecture}.
+
+While most client operations can be directed to any one namenode, the block reports from datanodes and the daemon threads must be handled carefully.
+In a Apache HDFS namenode, background daemon threads are responsible for a variety of functions including block re-balancing and lease recovery.
+If allowed to run on every node in the cluster, these daemon threads would interfere with each other's work, causing unpredictable results.
+To maintain the behaviour of Apache HDFS, HopsFS must guarantee that only one node in the cluster executes daemon threads at any given time.
+To this end, all namenodes active in a cluster participate in a leader election algorithm, explained in detail in section \ref{sec:leader-election}, that will elect a single namenode to be leader at any given time.
+Additionally, the leader election procedure serves as \emph{failure detector} within the set of namenodes, allowing clients to retrieve a list of live nodes.
+Datanodes fetch an updated list of active namenodes before every heartbeat messages, allowing them to keep an updated view of participants in the cluster and the current leader node's identity.
+As metadata about the state of datanodes, the action they should execute, and the blocks they contain is stored in MySQL Cluster, any namenode can process heartbeats or block reports from any datanode.
+Heartbeats are sent by the datanodes to different namenodes in a round-robin fashion, while the namenode to send block reports to is obtained by performing a RPC call to the leader.
+The leader will assign the block report to a namenode that has the capacity to process it and has the lowest number of block reports to process at the moment where the RPC is sent.
+
+\begin{figure}[h]
+\caption{Architecture diagram of HopsFS. The metadata storage engine is provided by MySQL Cluster}
+\label{fig:hopsfs-architecture}
+\centering
+\includegraphics[width=0.9\textwidth]{images/placeholder.png}
+\end{figure}
+
+\subsubsection{Group membership service and leader election}
+\label{sec:leader-election}
+As previously mentioned, HopsFS maintains a list of active namenodes in the system and elects one leader which executes functions critical to the proper functioning of the overall system.
+Apache HDFS, when configured in High Availability mode (HA) also require such a system and leverages Zookeeper to perform these functions.
+HopsFS eliminates the reliance on Zookeeper by leveraging the metadata storage system as shared memory and implementing reliable failure detection \footnote{cite failure detection paper here} and leader election \cite{DBLP:conf/dais/NiaziIBD15} using MySQL Cluster distributed engine (NDB).
+
+\subsection{Failure detection}
+Unsolvable in a theoretical context, very tractable if considered as an engineering problem.
+
+\subsubsection{The metaData Access Layer}
+The metadata access layer (DAL) is the HopsFS component that abstracts access to the database and lock management, providing an interface similar to that of the Java Persistence Framework (JPF).
+While it could theoretically be implemented for a datastore other than MySQL Cluster, this has not been done.
+Due to this, when the DAL is mentioned in this document we mainly refer to the concrete implementation for MySQL Cluster.
+
+The DAL mainly
+\begin{inparaenum}[1)]
+    \item establishes a connection to the NDB storage engine through the ClusterJ interface \cite{clusterj}
+    \item establishes a connection to the MySQL frontend, for queries that NDB does not support, such as \textit{delete}, \textit{truncate}, and \textit{count}.
+    \item maintains a per-thread connector for performance purposes.
+\end{inparaenum}
