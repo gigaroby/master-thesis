@@ -4,7 +4,7 @@ dependencies:
 
 test:
   pre:
-    - latexmk -pdf -C main.tex
+    - latexmk -pdf main.tex
 
   post:
     - cp main.pdf $CIRCLE_ARTIFACTS/thesis.pdf
