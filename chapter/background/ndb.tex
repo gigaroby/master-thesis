@@ -1,4 +1,5 @@
 \subsection{MySQL Cluster}
+\label{sec:mysql-cluster}
 HopsFS delegates the storage and querying of metadata to an external database called MySQL Cluster.
 MySQL Cluster is a in-memory, distributed, consistent, relational database management system (RDBMS) currently developed by Oracle.
 The sources for the system are released under the terms of the GNU General Public License (GPL), but development is driven by Oracle without external contributors.
@@ -141,6 +142,22 @@ Rejection is not, however, the only strategy to avoid diverging replica states, 
 In the simple case of a numeric value which is set to 1 and is incremented by 1 on each replica, rejecting one of the updates would result in a value of $2$ but an application could merge the conflicting updates, producing a correct value of 3.
 
 MySQL Cluster provides a sophisticated mechanism to both detect and resolve (merge) conflicts in a optimistic active active replication scheme.
-All of the available methods are documented in the MySQL Cluster documentation website \cite{mysql-cluster-documentation-replication}, but this section gives an overview of the \texttt{NDB\$EPOCH} family of merging functions, which can detect and resolve conflicts at a transaction level.
+All of the available methods are documented in the MySQL Cluster documentation website \cite{mysql-cluster-documentation-replication}, but this section gives an overview of the \texttt{NDB\$EPOCH} and \texttt{NDB\$EPOCH\_TRANS} merging functions, which can detect and resolve conflicts at a transaction granularity.
 The \texttt{NDB\$EPOCH} functions can only be applied in the context of a hybrid optimistic active active system with two replicating clusters as shown in figure \ref{fig:two-active-active-clusters}.
+Partitioning of data in this case can be either at table or database level, but this chapter will assume only one database configured as active on one cluster and passive on the other.
+We will refer to the active cluster as \emph{primary} and to the passive cluster as \emph{secondary}.
+As previously mentioned, the hybrid optimistic setup implies that all writes performed on the primary cluster are durable, while all writes on the secondary cluster may be rolled back.
+As shown in figure \ref{fig:two-active-active-clusters}, one SQL node per cluster acts as both master publishing changes for the other cluster to consume and follower fetching changes from the other cluster, tough this is not the only possible set-up.
+The resulting setup is a circular replication scheme, which is necessary for the conflict detection and merging functions to work.
 
+Conflict detection is performed on the primary cluster, as any conflicts caused by the primary cluster, which would be handled by the secondary cluster, are automatically ``won'' by the primary cluster.
+When a conflict is detected the master emits events that re-align the secondary cluster with the state of the primary cluster, in effect rolling back any conflicting changes.
+Here \texttt{NDB\$EPOCH} and \texttt{NDB\$EPOCH\_TRANS} diverge in behaviour: while the former only re-aligns the rows causing a conflict, the latter rolls-back the entire transaction and any transactions that depend on it before applying the master state.
+Aside from aligning the secondary state to that of the primary, MySQL Cluster also provide a powerful mechanism for applications to merge conflicting state: the \emph{exception tables}.
+Exception tables are created on the primary cluster with the same name as the tables conflict resolution is enabled for but with the additional \texttt{\$EX} suffix.
+These tables include a variety of columns including all of the columns of the primary key for the original table, some columns containing information on the conflict itself, and optionally any other column from the conflicting table as well as meta-columns containing values before and after the exception itself.
+If such tables are present when conflict resolution is enabled, every time a conflict is detected and the secondary state is re-aligned, the value for the aligned rows in the secondary is saved in the exception tables.
+The application can then poll the exception tables to implement any desired merging behaviour.
+Going back to the example of two concurrent transactions adding one to a value in a row, an entry for the secondary would be added in the exception table and the application would then be able to increment the counter again and delete the row from the conflict table to merge the results and obtain the correct value.
+
+Finally, it is important to note that conflict detection is sensitive to replication latency between the two clusters and the longer replication latency is, the more likely it is for the clusters to produce conflicting transactions.

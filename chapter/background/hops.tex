@@ -44,10 +44,9 @@ The leader will assign the block report to a namenode that has the capacity to p
 \label{sec:leader-election}
 As previously mentioned, HopsFS maintains a list of active namenodes in the system and elects one leader which executes functions critical to the proper functioning of the overall system.
 Apache HDFS, when configured in High Availability mode (HA) also require such a system and leverages Zookeeper to perform these functions.
-HopsFS eliminates the reliance on Zookeeper by leveraging the metadata storage system as shared memory and implementing reliable failure detection \footnote{cite failure detection paper here} and leader election \cite{DBLP:conf/dais/NiaziIBD15} using MySQL Cluster distributed engine (NDB).
+HopsFS eliminates the reliance on Zookeeper by leveraging the metadata storage system as shared memory and implementing reliable failure detection and leader election \cite{DBLP:conf/dais/NiaziIBD15} using MySQL Cluster distributed engine (NDB).
 
-\subsection{Failure detection}
-Unsolvable in a theoretical context, very tractable if considered as an engineering problem.
+\cite{DBLP:journals/jacm/ChandraHT96}
 
 \subsubsection{The metaData Access Layer}
 The metadata access layer (DAL) is the HopsFS component that abstracts access to the database and lock management, providing an interface similar to that of the Java Persistence Framework (JPF).
@@ -60,3 +59,7 @@ The DAL mainly
     \item establishes a connection to the MySQL frontend, for queries that NDB does not support, such as \textit{delete}, \textit{truncate}, and \textit{count}.
     \item maintains a per-thread connector for performance purposes.
 \end{inparaenum}
+
+\subsection{Failure detection}
+Unsolvable in a theoretical context, very tractable if considered as an engineering problem.
+

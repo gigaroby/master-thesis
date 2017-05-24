@@ -42,7 +42,7 @@ As demonstrated in \cite{DBLP:conf/dais/NiaziIBD15} on a workload trace provided
 Furthermore, the filesystem metadata is now accessible to other applications in a transactional SQL database, allowing other programs to consume and extend the model for their own purposes.
 % aggiungi citazione a buso qui
 
-While HopsFS solves most of Apache HDFS's problems related to running in the cloud, it is still limited to running within a single data-center (region).
+While HopsFS successfully improves on many of HDFS's architectural pitfalls, 
 The goal of this work is to enable a single HopsFS filesystem to be geographically replicated in up to two regions for fault-tolerance, while allowing clients in each data-center to perform all operations.
 MySQL cluster fully supports geographical replication, but the resulting system propagates changes between regions asynchronously.
 The main objectives for this projects are therefore threefold:
@@ -54,11 +54,12 @@ The main objectives for this projects are therefore threefold:
 The expected results is for the two regions to appear to clients as a single filesystem, while allowing clients in one data-center to keep working if the other data-center is unavailable for any reason.
 
 \subsection{Outline}
-Section \ref{sec:background} describes the main components involved in the project:
-\begin{inparaenum}
-\item HDFS, the understand of which is necessary to discuss the characteristics of the distributed filesystem
-\item HopsFS, in terms of the changes applied to HDFS to decouple the metadata storage and to allow multi-namenode architecture
-\item MySQL Cluster and NDB, to understand the technology behind the metadata storage system
+
+Section \ref{sec:background} introduces the main areas of work for this thesis, namely:
+\begin{inparaenum}[1)]
+\item the Hadoop Filesystem (HDFS) as the general architecture of HopsFS, especially with regard to block management is still based on it
+\item the main modifications applied to HopsFS to increase scalability and reliability of the system
+\item MySQL Cluster as the metadata storage layer for HopsFS
 \end{inparaenum}
 
 Section \ref{sec:problem-definition} formally defines the problem that a multi-datacenter capable filesystem aims to solve and the desirable characteristics that we would like the final system to have.
