@@ -1,0 +1,71 @@
+Implementazione
+Vogliamo disegnare un filesystem che si estenda in modo trasparente su piu' zone geografiche.
+Ogni zona geografica deve essere in grado di operare in modo quasi completamente indipendentemente dalle altre, per fare in modo che i clients contenuti riescano a lavorare anche in caso le altre zone non siano disponibili e per non occupare troppo la banda tra zone.
+
+Possiamo usare replicazione asincrona per tenere sincronizzate cluster di metadati tra due diverse zone, la primaria e la secondaria.
+HopsFS utilizza le garanzie di consistenza fornite da NDB per implementare la consistenza a livello di operazione del filesystem e usando async replication non abbiamo queste garanzie
+Quello che possiamo fare e' cercare di eseguire sul cluster primario tutte le operazioni che assolutamente necessitano di consistenza, cercare tecniche per evitare i conflitti dove possible e come ultima spiaggia risolvere i conflitti dove non si puo' evitare.
+Le operazioni che richiedono consistency assolutamente sono principalmente quelle atte a mantenere la semantica single-writer, ossia quasi tutte le operazioni che hanno qualcosa a che fare con gli inodes e i blocchi.
+Fortunatamente, come visto in workload sintetico spotify e validato da yahoo e facebook [papers], circa 95% delle operazioni sono in sola lettura e possono essere eseguite sul cluster locale.
+Il restante 5% delle operazioni invece vanno eseguite sul cluster primario.
+Dato che tutte le operazioni che committano transactions sono eseguite sul cluster primario per mantenere consistency nei leases e altra roba, e che sul cluster secondario eseguiamo solo operazioni di lettura, non ci saranno mai conflitti.
+L'assunzione che tutte le operazioni vengano committate solo sul cluster primario non e' valida solo in caso i due clusters non riescano a comunicare tra di loro, una condizione che puo' essere causata da due eventi: 1) uno dei due clusters fallisce 2) i due clusters sono entrambi online ma non riescono a comunicare tra di loro: una condizione nota come network partition.
+Network partition e' un fenomeno complesso che puo' manifestarsi in molti modi, ma in questo lavoro la definiamo come: la completa divisione dei due data centers in maniera tale che nessun nodo nel primo datacenter possa comunicare con qualsiasi nodo nel secondo e viceversa.
+Oltre a semplificare la quantita' di casi da gestire, questa definizione e' supportata dal modello di datacenters geo-replicati proposto, dove tutta la comunicazione avviene attraverso una rete virtuale supportata da una connessione verso l'esterno.
+In caso di fallimento di questa connessione, tutti i link tra i clusters faillirebbero.
+In scenari reali, e come mostrato nel paper di google, i fallimenti di un cluster (o di un subset) sono abbastanza frequenti e spesso dovuti ad aggiornamenti del software che contengono errori.
+Situazioni di split-brain sono invece meno frequenti, ma ripararle richiede tempo, come mostrato nel paper di microsoft sui link nei data-centers.
+Determinare quando avvenga una condizione di split brain e' necessario per permettere ai clusters di adattarsi a questa situazione.
+
+# detection di situazioni di split-brain
+Per poter gestire situazioni dove i clusters sono divisi, il primo passo e' permettere ai namenodes di capire quando questa situazione si verifichi.
+Per farlo proponiamo due procedure diverse, una da eseguire sui namenodes appartenenti al cluster primario e una da eseguire sui namenodes del cluster secondario.
+
+## detection su primary
+La detection di split-brain su cluster primario richiede l'adattamento della procedura di leader election gia' discussa in precedenza, aggiungendo ad ogni nodo un campo che dice se il nodo in questione appartenga al cluster primario o secondario.
+A questo punto, per identificare una network partition eseguiamo periodicamente la seguente procedura:
+* otteniamo la lista di namenodes attivi nel sistema dalla procedura di leader election (che fa da failure detector)
+* se la lista contiene solo namenodes nella zona primaria allora assumiamo che siamo in una situazione di network partition
+* se la lista contiene almeno un namenode della zona secondaria allora non siamo in una situazione di network partition (e invochiamo le procedure per uscirne se lo eravamo in precedenza)
+La situazione dove il round di leader election non mostra alcun nodo della zona secondaria puo' avvenire solo se 1) tutti i nodi nella zona secondaria sono falliti (crash) 2) la connessione tra i nodi della zona secondaria e il metadata cluster primario e' fallita (split brain)
+
+## detection sul secondary cluster
+Per gestire la detection su cluster secondario non possiamo fare affidamento alla stessa procedura adottata dal primary, poiche' assumiamo che in tale situazione, la connessione verso il cluster primario sia compromessa.
+In questo caso facciamo di nuovo affidamento sul failure detector distribuito contenuto nella procedura di leader election ma eseguiamo una di queste procedure sul cluster locale.
+A questa procedura aggiungiamo un campo booleano su ogni namenode descriptor, un flag che indica se il nodo in questione abbia o meno una connessione al cluster primario.
+Questa flag viene modificata ogniqualvolta la connessione al cluster primario sul namenode corrente fallisce (flag=false) o viene ripristinata (flag=true)
+A questo punto eseguiamo la seguente procedura volta a determinare se almeno un nodo in questa zona ha la connessione al primary (nel qualcaso non esiste la condizione base di network partition):
+* se il namenode dove eseguo la procedura e' connesso al cluster primario, non c'e' una network partition
+* se questo non e' vero, ottieni la lista di namenodes dalla secondary-only leader election (che viene usata solo per il failure detector)
+* se la lista contiene almeno un nodo attivo avente connessione verso il primary cluster, non c'e' una partition
+* se la lista non contiene nodi attivi con connessione verso il primary: siamo in una situazione di n/w partition
+
+A questo punto sia primary che secondary cluster hanno la capacita' di identificare network partitions indipendentemente ma non hanno modo di distinguere tra network partition o crash dell'altro cluster.
+Questa situazione e' problematica perche', in caso di crash dell'altro cluster, il cluster rimasto puo' semplicemente:
+* continuare come se nulla fosse in caso del primary
+* eseguire tutte le operazioni importanti sul local cluster e agire come primary, nel caso del secondary cluster.
+
+
+I conflitti emergono nel caso in cui i due clusters operino separatamente l'uno dall'altro (split-brain) a causa di una network partition e poi vengano unificati in un secondo momento.
+In questo caso potremmo avere conflitti sia a livello di inode (nuovi files o cartelle creati con gli stessi nomi da entrambe le parti) che a livello di blocco.
+I conflitti a livello di blocco sono particolarmente problematici perche' potremmo ritrovarci con blocchi su disco diversi a cui e' stato assegnato lo stesso ID.
+Anche se questo verrebbe risolto al primo block report una volta che il cluster e' di nuovo unificato, poiche' il blocco creato sul master cluster vincerebbe e quelli creati dal secondario avrebbero checksum diverso e verrebbero quindi considerati corrotti, e' possibile creare una soluzione che prevenga i conflitti interamente.
+Per comprendere la soluzione e' necessario capire come avviene l'assegnazione degli ID ai blocchi.
+Siccome creare blocchi e' una operazione frequente, richiedere un nuovo ID al database ogni volta sarebe troppo costoso.
+Il namenode richiede quindi una sequenza di ID liberi che utilizzera' per creare i prossimi blocchi.
+Quando finisce questa sequenza di blocchi semplicemente ne richiedera' una nuova.
+Se facciamo in modo che la sequenza di blocchi restituita contenga solo indici pari sul cluster primario e blocchi dispari sul cluster secondario, e siccome l'id del blocco piu' l'ID dell'inode sono la primary key della tabella dei blocchi, questo rende impossibile che due blocchi creati su due cluster distinti causino conflitti.
+
+I conflitti sulla creazione di nuovi inodes, e quindi files e directories sono invece impossibile da prevenire, dato che un inode e' identificato solamente da il suo nome e dall'identificativo dell'inode padre.
+Questo significa che se un file (o cartella) con lo stesso nome vengono creati sui due clusters, il conflitto e' inevitabile.
+A questo punto l'unica cosa che possiamo fare e' gestire il conflitto.
+Ci sono diverse possibili strategie, potremmo semplicemente decidere che la nuova cartella o il nuovo file creati sul cluster secondario sono da buttare (ignorando quindi i dati che sono stati posti nell'exception table) o possiamo decidere di risolvere il conflitto rinominando il file con <nome_1> o altro e mantenere il contenuto.
+
+Un problema concettualmente 
+
+
+In particolare, se fosse possibile determinare che l'altro cluster e' completamente offline, si potrebbe fare finta di essere semplicemente un cluster completo (operando sul cluster in locale come se fosse il primario se siamo sul secondario).
+Per fare questo c'e' bisogno di due cose: un modo per determinare se in questo momento il cluster sia diviso e un modo per determinare se questa divisione e' causata da un crash dell'altro cluster o da una network partition.
+
+
+
