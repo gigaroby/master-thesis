@@ -41,12 +41,20 @@ A questo punto eseguiamo la seguente procedura volta a determinare se almeno un 
 * se la lista non contiene nodi attivi con connessione verso il primary: siamo in una situazione di n/w partition
 
 A questo punto sia primary che secondary cluster hanno la capacita' di identificare network partitions indipendentemente ma non hanno modo di distinguere tra network partition o crash dell'altro cluster.
-Questa situazione e' problematica perche', in caso di crash dell'altro cluster, il cluster rimasto puo' semplicemente:
+Questa capacita' puo' essere aggiunta fornendo un sistema ospitato in una terza zona, indipendente da entrambe, che agisca come tie-breaker e permetta ai sistemi di sapere, in modo consistent, quale delle due zone sia effettivamente available (o entrambe, se quello fosse il caso).
+Tale sistema potrebbe essere implemento, a titolo di esempio, con un cluster di Zookeeper formato da tre nodi: uno nella primary zone, uno nella secondary zone, e uno in una terza zona indipendente da entrambe.
+Con un meccanismo di questo tipo, un cluster non in grado di raggiungere il tie-breaker per qualsiasi motivo dovrebbe eseguire una procedura di shut-down, e solo clusters con accesso ad un quorum formato da almeno il tie-breaker piu' uno dei nodi sarebbero in grado di procedere.
+
+In caso la situazione sia quella dove effettivamente solo uno dei clusters e' online allora:
 * continuare come se nulla fosse in caso del primary
-* eseguire tutte le operazioni importanti sul local cluster e agire come primary, nel caso del secondary cluster.
+* eseguire tutte le operazioni importanti sul local cluster e agire come primary, nel caso del secondary cluster
+In entrambi i casi, non si possono verificare conflitti, visto che il cluster restante opera a tutti gli effetti come un singolo cluster (con una policy di replicazione differente che sara' illustrata in \ref{sec:block-replication}).
 
+# Split brain handling
+Il caso in cui i due clusters siano entrambi running deve essere gestito con particolare cura per mantenere la single-writer semantic di HDFS.
+Se permettessimo semplicemente ai due clusters di continuare a operare come due entita' differenti senza alcuna restrizione, anche ammettendo di assegnare block e inode id non conflittuali, potrebbero avvenire conflitti non facilmente risolvibili quando i cluster verranno unificati.
 
-I conflitti emergono nel caso in cui i due clusters operino separatamente l'uno dall'altro (split-brain) a causa di una network partition e poi vengano unificati in un secondo momento.
+## Conflicts
 In questo caso potremmo avere conflitti sia a livello di inode (nuovi files o cartelle creati con gli stessi nomi da entrambe le parti) che a livello di blocco.
 I conflitti a livello di blocco sono particolarmente problematici perche' potremmo ritrovarci con blocchi su disco diversi a cui e' stato assegnato lo stesso ID.
 Anche se questo verrebbe risolto al primo block report una volta che il cluster e' di nuovo unificato, poiche' il blocco creato sul master cluster vincerebbe e quelli creati dal secondario avrebbero checksum diverso e verrebbero quindi considerati corrotti, e' possibile creare una soluzione che prevenga i conflitti interamente.
@@ -61,11 +69,17 @@ Questo significa che se un file (o cartella) con lo stesso nome vengono creati s
 A questo punto l'unica cosa che possiamo fare e' gestire il conflitto.
 Ci sono diverse possibili strategie, potremmo semplicemente decidere che la nuova cartella o il nuovo file creati sul cluster secondario sono da buttare (ignorando quindi i dati che sono stati posti nell'exception table) o possiamo decidere di risolvere il conflitto rinominando il file con <nome_1> o altro e mantenere il contenuto.
 
-Un problema concettualmente 
+Con le tecniche sopracitate possiamo gestire in modo trasparente nuovi files e nuove directories ma non altre operazioni.
+Sicome non abbiamo una tabella dei leases condivisa, e non possiamo quindi fare affidamento su questo meccanismo per sapere quali files esistenti stiano venendo modificati, permettere a clients di aggiungere dati ad un file potrebbe risultare nella situazione dove due clusters hanno due versioni dello stesso blocco, un conflitto irrisolvibile a meno di creare due intere copie del file o un meccanismo per permettere versioni divergenti dello stesso file.
+Subtree operations, descritte nel paper di HopsFS (TODO: citale nel background su HopsFS [pagine gratis, yey]), a causa del loro uso dei lock per garantire consistency e poiche' generano un grande numero di grandi transactions, non sono permesse in questa modalita'
+Infine sia delete che move sono disabilitate per simili ragioni.
+Riassumendo, questa soluzione permette ai due data-centers separati durante una network partition di eseguire file reads e create di nuovi files e directories, operazioni che costituiscono oltre il 97% (TODO: verify) del workload di spotify e altri workload simili pubblicati da yahoo e facebook.
+
+Una possibile alternativa da applicarsi in situazioni dove il workload e' significativamente diverso e richiede accesso a tutte le operazioni e' quello di istituire un sitema di arbitrio simile a quello di NDB e illustrato in section \ref{sec:ndb-arbitration}.
+In questo caso, solo ad uno dei due clusters sarebbe permesso di continuare ad operare, mentre l'altro cluster sarebbe forzato ad andare in modalita' di sola lettura fino alla ricongiunzione.
 
 
-In particolare, se fosse possibile determinare che l'altro cluster e' completamente offline, si potrebbe fare finta di essere semplicemente un cluster completo (operando sul cluster in locale come se fosse il primario se siamo sul secondario).
-Per fare questo c'e' bisogno di due cose: un modo per determinare se in questo momento il cluster sia diviso e un modo per determinare se questa divisione e' causata da un crash dell'altro cluster o da una network partition.
+
 
 
 
