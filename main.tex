@@ -60,6 +60,10 @@
 \usepackage{amsfonts,amssymb,amsbsy}
 
 \usepackage{paralist}
+\usepackage{algorithm}
+\usepackage{algpseudocode}
+\usepackage{listings}
+
 
 %% Use the macros in this package to change how the hyperref package below 
 %% typesets its hypertext -- hyperlink colour, font, etc. See the package
@@ -241,16 +245,15 @@ Otaniemi, 16.1.2015
 \input{chapter/review/gfs}
 \input{chapter/review/azure}
 \input{chapter/review/calvin}
+\input{chapter/results}
 \clearpage
 
-\section{Implementation}
+\section{Contribution}
 \label{sec:implementation}
 \input{chapter/implementation/core}
-\clearpage
-
-\section{Results}
-\label{sec:results}
-\input{chapter/results}
+\input{chapter/implementation/metadata}
+\input{chapter/implementation/blocks}
+\input{chapter/implementation/adaptations}
 \clearpage
 
 \section{Summary} 

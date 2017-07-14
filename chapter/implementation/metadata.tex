@@ -1,0 +1,161 @@
+\subsection{Metadata management}
+In HopsFS, file system metadata are stored and processed by a MySQL Cluster cluster.
+As discussed in section \ref{sec:mysql-cluster}, MySQL Cluster supports a variety of asynchronous schemes that can be used to replicate transactions between different geographically separate clusters, without impacting the liveness and latency of the running NDB cluster.
+The hybrid active active replication scheme allows different metadata clusters and namenodes to operate on separate copies of the metadata, which is asynchronously distributed to all clusters in the replication ring.
+Per limitation of the conflict function selected (\texttt{NDB\$EPOCH\_TRANS}), only two clusters can be set up in this configuration, limiting the replication to two geographical areas.
+In order to further simplify the basic design, one cluster is designated as the active partition for all data, while another is designated as the passive.
+Following this, we will refer to the clusters as \emph{primary} for the cluster active for all partitions and \emph{secondary} for the cluster passive for all partitions. 
+All transactions committed on the primary cluster are durable, while transactions committed on the secondary cluster may be re-aligned if they are in conflict.
+Re-aligning involves undoing the conflicting transaction, as well as any transactions depending on it and the applying the changes originated on the primary.
+As previously mentioned, conflict tables, which are only present on the primary cluster, will contain the conflicting values for the rolled-back rows, allowing applications that access the database to react to conflicts in specific ways.
+
+While asynchronous propagation of transactions fulfills the requirement of maintaining a complete working copy of all data in both clusters, it undermines a number of processes in the namenode that rely on the consistency properties of the NDB database.
+Due to the lack of row-level locking, for example, it would be entirely possible for HopsFS to grant a lease on a file in both the primary and secondary database concurrently, breaking the single-writer semantic of HDFS (and HopsFS).
+To avoid this issue and maintain the appropriate level of consistency for the filesystem, namenodes in the secondary zone are allowed to perform direct connections to the primary metadata cluster to execute operations which require strong consistency properties and locking.
+Operations require such strong consistency properties to maintain the single writer semantics of HDFS, which means that all operations that modify file and block metadata will be routed to the primary cluster.
+While routing write operations to the secondary cluster may appear to be problematic in terms of traffic flowing between zones, the analysis of the workload provided by Spotify and described in the HopsFS paper \cite{DBLP:conf/dais/NiaziIBD15} as well as similar traces provided by Yahoo \cite{abad2014big} and LinkedIn \cite{DBLP:conf/sc/RenZPG14}, show that such operations only make up for less than 5\% of the total volume, allowing this approach to be considered.
+The only situation where not all operations are going to be committed on the primary, and therefore in a consistent and durable fashion, is when the two clusters are unable to communicate with each other; a condition known as split brain that can be caused by one of two events:
+\begin{inparaenum}[1)]
+    \item one of the two clusters fails
+    \item both clusters are online, but cannot communicate to each other, a situation known as a network partition.
+\end{inparaenum}
+A network partition can manifest in different ways but in the context of this paper we define it as a complete inability of nodes in the first cluster to connect to any node in the second cluster and vice-versa.
+While the definition is very specific, and network partitions can typically manifest in a variety of more subtle ways, in this case the specificity is also supported by our model of geo-replicating databases which implies that all traffic between zones is carried by a virtual network running on the external connection.
+In case of failure on this particular (virtual) link, all connectivity between data centers would effectively be cut, and, a shown in Microsoft's study on network failures \cite{DBLP:conf/sigcomm/GillJN11}, links between data-centers take the longest to repair.
+Because we can assume that split brain scenarios are going to last a non-negligible amount of time to repair, regardless of cause, determining when such an event is happening is necessary to allow clusters to adapt their behaviour.
+
+\subsubsection{Split brain detection}
+We propose two different procedures, one for the primary and one for the secondary cluster, that allow namenodes to detect split brain scenarios with a minimum of internal coordination.
+Coordination is provided by the leader election procedure described by Niazi et al \cite{DBLP:conf/fast/NiaziIHDGR17}, and discussed previously which is already present within HopsFS.
+
+\paragraph{Detection on primary cluster}
+
+To detect a split brain scenario on the primary cluster, we need to ascertain whether or not we are able to communicate with any node in the secondary cluster.
+While we could implement a distributed failure detector to check for liveness of nodes in the secondary zone, HopsFS already exposes the failure detector built into the leader election procedure.
+In the context of multiple data-centers, the leader election procedure is extended to include both namenodes from the primary and secondary cluster and a field in every row of the election table, to indicate the cluster the node belongs to.
+Nodes from the secondary cluster connect directly to the primary cluster to perform leader election which means that, both in case of network partition and secondary cluster failure, the nodes would eventually be marked as not live by the failure detector.
+With all of the prerequisites in place, the algorithm to detect network partitions on the primary cluster is illustrated in algorithm \ref{algo:detection-primary}.
+
+\begin{algorithm}[!ht]
+	\begin{algorithmic}[1]
+  		\caption{Split brain detection: primary cluster}
+  		\label{algo:detection-primary}
+  		\State $fd \leftarrow leaderElection$.getFD()
+  		\Comment{get the failure detector from the leader election}
+		\State $liveNodes \leftarrow fd$.getLiveNNSet()
+		\For{$node$ in $liveNodes$}
+		    \If{$node$.getCluster() == $\mathit{SECONDARY}$}
+		        \State \Return $ok$
+		    \EndIf
+		\EndFor
+		\State \Return $detected$
+  	\end{algorithmic}
+\end{algorithm}
+
+\paragraph{Detection on secondary cluster}
+
+The secondary cluster cannot rely on the same procedure as the primary cluster because, by definition, if a network partition happened or the primary cluster crashed, the connections of the namenodes to the primary clusters would be lost (and the leader election procedure would not run).
+We can, however, treat the loss of connection as a signal that a network partition or cluster crash is occurring, but only if all nodes in the secondary cluster are not able to reach the primary.
+One possible solution would be to have a table on the local database where namenodes write the status of their connection to the primary metadata cluster.
+Given that namenodes can fail at any time, however, old entries from crashed nodes could actually result in false positives, impeding the other namenodes from detecting the partition.
+In order to only query live namenodes we can use the same leader election component that we leverage in other parts of the system, running the algorithm on the local instance of NDB and only allowing local nodes to participate.
+Instead of creating one extra table, we attach the status of the connection to the primary as a new column in the \emph{local} leader election instance.
+With such a failure detector in place, detecting a split brain only requires checking the status of the connection to the primary on all other nodes, as shown in algorithm \ref{algo:detection-secondary}.
+
+\begin{algorithm}[!ht]
+	\begin{algorithmic}[1]
+  		\caption{Split brain detection: secondary cluster}
+  		\label{algo:detection-secondary}
+  		\If{$currentNode$.isConnectedToPrimary()}
+  		    \State \Return $ok$
+  		    \Comment{if the current node has a connection to the primary metadata cluster, there is no partition}
+  		\EndIf
+  		\Comment{get failure detector from leader election}
+  		\State $fd \leftarrow secondaryLeaderElection$.getFD()
+		\State $liveNodes \leftarrow fd$.getLiveNNSet() $\setminus \{currentNode\}$
+		\For{$node$ in $liveNodes$}
+		    \If{$node$.isConnectedToPrimary()}
+		        \State \Return $ok$
+		    \EndIf
+		\EndFor
+		\State \Return $detected$
+  	\end{algorithmic}
+\end{algorithm}
+
+\textbf{TODO: network partition state machine here + explain}
+
+
+While namenodes are now capable of detecting a split brain independently, they don't have the capability of distinguishing between a network partition or a cluster crash.
+This capability can be provided by providing a system hosted in a third zone, independent from the first two, which will act as a tie-breaker and allow the systems to consistently know whether both zones are still live (network partition) or if the remaining cluster is the only one currently running.
+Such a system could be implemented in a variety of ways, for example by configuring a zookeeper cluster \cite{zookeeper} with three nodes: one in the primary zone, one in the secondary zone and the tie-breaker in the third zone.
+In case of split brain, both clusters would query the tie-breaking system which would yield one of the following outcomes:
+\begin{enumerate}
+    \item the cluster is unable to get a quorum of nodes; it is isolated both from the secondary and tie-breaker. In this case the cluster goes into read-only mode as it is the only safe course of action
+    \item the cluster is able to get a quorum with the tie-breaker; the other cluster failed
+    \item both clusters are able to contact the tie-breaker; the cluster is experiencing a network partition
+\end{enumerate}
+
+In case of cluster failure the remaining cluster can continue serving all requests from the clients.
+The reason for this is because, following the tie-breaking, we are sure that the other cluster is either not live or in read mode, therefore there will be no conflicts upon restoring the asynchronous replication of metadata.
+If the failed cluster is the primary, the secondary cluster namenodes need to switch over to the local cluster for write, as well as read operations, until such time where connectivity between the two clusters is restored and all necessary procedures to safely resume metadata replication have been executed.
+
+While a cluster failure is relatively straightforward, network partition must be handled with extreme care to maintain the single-writer semantics of HDFS.
+Should the two cluster be allowed to continue without any restrictions on the operations that they are allowed to perform, they could cause conflicts in such a way that required human intervention to merge.
+
+\subsubsection{Conflict handling for network partitions}
+Conflicts on file metadata can only happen in three classes of tables:
+\begin{itemize}
+    \item the inode table
+    \item the block and replica tables
+    \item the lease table
+\end{itemize}.
+While conflict on leases can be avoided by clearing the leases upon both detecting a partition and resolving the partition, forcing clients to retake the lease and retry the operation, conflicts on the inode and block tables must be handled.
+\paragraph{Conflicts on block and replica tables} are particularly problematic as, after the partition is resolved, the system may be in a state where two disk blocks with different content have the same ID.
+Upon replication, the metadata for the blocks created on the primary cluster would ``win'' and on-disk replicas created on the secondary cluster would therefore be considered corrupt on the first block report due to having a different checksum.
+While it would be possible to devise a conflict resolution scheme to maintain both block versions, conflicts on blocks and replicas can be avoided altogether.
+Before introducing the solution it is necessary to understand how ID assignment for blocks (and other database objects) is handled in HopsFS.
+Given that \textit{addBlock} is a frequent operation when writing files doing a round-trip to the database to request each new block ID would be prohibitively slow and would create a large amount of work on the metadata cluster, this operation is batched.
+At the first write operation, namenodes require a sequence (batch) of new IDs that they will use to fulfill subsequent \textit{addBlock} operations.
+When all IDs in the batch have been assigned, the namenode just requests another batch.
+By configuring the namenodes on the primary cluster to only require batches of \emph{even block IDs} and namenodes on the secondary cluster to require batches of \emph{odd block IDs}, two blocks created on two different clusters will never have the same block ID and will therefore never cause a conflict.
+
+\paragraph{Conflicts on inodes,} on the other hand, are caused by both partitions creating a file or directory with the same name in the same parent directory.
+As previously discussed, inodes also have unique IDs, but conflict are detected on the primary key which is composed of the name and parent ID. 
+These conflicts are therefore unavoidable but they can be resolved with ease.
+Upon detecting a conflict on the inode table, the inode created on the secondary cluster will be placed in the exception table due to the conflict resolution strategy.
+With the inode in the exception table, the namenode responsible for handling conflicts (which is a leader elected between nodes in the primary cluster), can create a new inode with a different name and place it back in the same directory.
+A possible example of such a naming scheme may be \texttt{<original name> + <sequential number>} such that if \texttt{myFolder/myFile} was created on both clusters, the conflicting file would be renamed as \texttt{myFolder/myFile\textbf{1}}.
+Allowing files to sometimes be renamed is a significant difference in behaviour compared to both HDFS and HopsFS in single zone mode, which is why clients of the system need to take this behaviour into account and react to it upon resolution of a network partition.
+
+By using the \emph{conflict avoidance and resolution} techniques developed, clients in both zones are allowed to continue all read and file creation operations with minor divergences in overall system behaviour.
+The techniques presented, however, are only sufficient to handle the file creation case, but not other operations that require modification of metadata.
+Given that in case of network partition the system doesn't have access to a consistent lease table, there is no way of knowing which existing files are being appended to, the only form of modification allowed on files in HDFS.
+Allowing clients to append data to a file, could therefore result in two clusters having two diverging versions of the same block, a conflict which cannot be resolved without either creating two different copies of the file with new blocks or implementing a way for the system to handle diverging copies of the same file.
+Due to the complexity both in terms of implementation and resulting behaviour of the proposed solutions, as well as the fact that in the Spotify synthetic workload shown in \cite{DBLP:conf/dais/NiaziIBD15} append operations account for 0.0\% of the total, the current course of action is to disallow them during network partition events.
+Subtree operations, due to their use of locking and the large amount of transactions they generate, are also disallowed.
+Deletes and moves are also not permitted due to the conflicts that they would generate.
+This solution allows the two data-centers to operate independently during network partitions, albeit with a subset of operations.
+
+A possible alternative for workloads that require the full set of operations is to implement an arbitration strategy similar to that used in NDB.
+In this case, only one of the two sub-clusters would be allowed to continue performing write operations, while the other cluster would be free to continue in a read-only capacity.
+
+\subsubsection{Summary}
+In this section we describe a plan that allows the clusters to not only detect split brain situations, but to identify whether the situation is due to a network partition or a cluster crash and react accordingly.
+While many operations are disallowed during network partitions, this should be a rare and transient event.
+Furthermore this is only a plan for the initial implementation and restrictions may be lifted with further work on conflict resolution.
+
+% \subsubsection{Representation}
+% Metadata in HopsFS is managed by a relational database management system, and is therefore modelled as a number of independent tables containing data tuples known as rows.
+% Each table has a fixed schema which defines the name and type of the elements contained in each tuple.
+% Tables uniquely identify tuples according to their primary key, a user-defined subset of fields of the tuple itself.
+% A primary key is unique for the table where is contained and this restriction is enforced by the database to maintain consistency.
+% Primary keys are also instrumental to the conflict detection and resolution processes that are required to maintain the asynchronous system in a consistent state.
+% Two transactions are considered conflicting if and only if they modify the same tuple as identified by primary key.
+% 
+% HopsFS stores the file system tree as inodes in the \emph{inode table}.
+% Each inode is identified uniquely by its name and the unique id for the parent inode.
+% Inodes are partitioned by NDB in such a way that all the children of any given inode are stored in the same shard, allowing for very fast directory listing.
+% While directoryplit
+
+
+

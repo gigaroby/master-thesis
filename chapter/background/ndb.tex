@@ -77,7 +77,6 @@ In case of restore a data node \begin{inparaenum}[i)]
 By using a combination of LCP and REDO log, the node therefore reduces the amount of data to transfer from a complete snapshot to only some transactions.
 The above techniques only help if the node starts the restore relatively promptly as the local snapshots will be quickly invalidated when other nodes erase theis REDO logs to create a newer LCP.
 
-
 \subsubsection{SQL Nodes}
 SQL nodes are MySQL server instances that can create and interact with tables using the \texttt{NDBCLUSTER} engine.
 Tables created with such an engine are stored on a NDB cluster.
@@ -85,6 +84,13 @@ SQL nodes participate in the cluster as clients and can also be elected arbitrat
 Any number of SQL nodes can be connected to the same NDB cluster to better distribute the load and increase the availability of the service for MySQL clients.
 While MySQL server itself is modified to connect and participate in an NDB cluster, clients can connect using standard MySQL client libraries, which allows unmodified applications to take advantage of the scalability and performance benefits of MySQL Cluster.
 
+\subsubsection{Isolation levels and locking}
+NDB only supports transaction isolation level \texttt{READ\_COMMITTED}, which guarantees that uncommitted values will never be read.
+While reading an uncommitted value is impossible, NDB implements READ COMMITTED on a row-by-row basis, which makes it entirely possible for a transaction to commit some updated values while another transaction is reading them, resulting in the second transaction observing a subset of values before the transaction and the rest after.
+In concrete terms, whenever a data node receives a read request, it will always return the most recently committed value.
+
+In order to obtain stricter forms of serialization, NDB allows transactions to set row-level locks, both shared and exclusive, which are released upon transaction commit or roll-back.
+Row level locking is the fundamental mechanic that allows HopsFS to provide consistent filesystem operations to clients as well as enable the use of NDB as shared memory for the leader election processes.
 
 \subsubsection{Geographic clusters}
 While a single NDB cluster offers strong consistency and good performance in the context of a data-center network, MySQL cluster also offers a variety of options to extend a cluster to more than one data-center.

@@ -1,0 +1,40 @@
+\subsection{Block management}
+Aside from managing metadata in a replicated environment, a geographically replicated storage system also needs to manage file content in such a way that, during a split brain, the separated clusters are capable of serving all client requests.
+As previously mentioned, HDFS and HopsFS, store file content in \emph{blocks} which are managed by data nodes.
+A file can span arbitrarily many blocks which have a configurable maximum size, by default 150 megabytes.
+Blocks are immutable once they are marked as finished and only the last block in a file can be modified.
+Adding content at the end of a block is the only modification allowed.
+
+In order to maintain availability of blocks in the face of data node failure, HopsFS supports two different replication schemes: block replication and erasure coding.
+
+\paragraph{In block replication,} the system maintains multiple copies of the same block on different data nodes.
+The copies, called replicas, are distributed among data nodes according to a configurable placement policy, which aims to minimize the number of blocks which are unavailable as a result of component failure, be it machine or switch.
+In case one of the replicas is permanently lost, the leader namenode instructs data nodes to re-replicate the block, returning the amount of replicas to the specified number, three by default.
+
+\paragraph{Erasure coding} is a radically different concept than whole block replication.
+Instead of creating entire copies of the blocks, erasure coding computes new parity blocks from the original blocks.
+Both the number of source and output blocks are configurable, and the output blocks are called parity blocks.
+Assuming $N$ source blocks, 10 for example, and $M$ parity blocks, 5 for example, the 10 original blocks can be reconstructed using any combination of the $N + M$ blocks now available.
+The parity blocks form a new file, which is stored in a different directory than the original file.
+Block placement for erasure coding blocks is handled by the \emph{erasure coding manager} which is described in \cite{grohsschmiedt2014making}.
+In case one of the blocks for a erasure coded file fails, the system needs to regenerate either the original block or the parity block, which requires a full read of $N$ of the blocks and it is accomplished through a mapreduce job.
+
+In this work we only consider whole block replication but we plan to implement erasure coding schemes in later iterations of the project.
+
+\subsubsection{Placement policy}
+Given that the goal for the project is to allow both geographical regions to operate independently in case of split brain, each region requires a complete set of blocks from all locations.
+In order to obtain this, the block placement policy needs to be aware of the existence of multiple zones, which are considered separate failure domains.
+The existing hierarchy for failure domains only considers machine and rack but the modified version will also include a third level: \emph{geographical zone}.
+
+While this solves the issue of placing blocks in the correct datanodes, there remains the issue of the number of replicas to create.
+The default value of three creates imbalance, by assigning two replicas in the zone where the block was created and only one in the other zone.
+By using a replica value of four two replicas are assigned to every zone, ensuring that both zones have the same amount of blocks.
+
+The final problem regarding the placement policy is the handling of split brain scenarios.
+Without further adaptations, a split brain scenario would lead the cluster to believe that half of all the replicas in the cluster are missing, forcing the leader namenode to re-replicate all the blocks an additional two times.
+Aside from creating a very large amount of network load between datanodes the result of such re-replication would be discarded as soon as the temporary split brain scenario is resolved.
+In order to avoid spurious re-replication, we modify the amounts of replicas to two during split brain scenarios.
+By setting the value to two, we avoid any re-replication of existing blocks and we only create two replicas for new blocks.
+When the two clusters are merged, the replica value is once again increased to four, and the normal background re-replication tasks will create the necessary replicas in the other zone for blocks created during the split brain.
+
+\subsubsection{}
