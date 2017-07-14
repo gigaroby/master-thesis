@@ -10,29 +10,20 @@ A partial exception to this rule are cloud provider's Availability Zones (or jus
 They achieve this result by placing different data-center buildings just hundreds of kilometers from each other, connecting them to different power providers and ISPs and providing dedicated connection between the data centers themselves.
 Cloud provider zones are, however, insignificant to our goal as a system designed to run in the former scenario will only perform better when deployed in the latter.
 
-The rest of this chapter is dedicated to showing how we plan to overcome the challenges in building such a distributed file system and the design trade-offs to make this possible leveraging the architectural blocks provided by the HopsFS project.
-
-\subsection{Replication}
 As shown in chapters \ref{sec:hdfs} and \ref{sec:hopsfs}, the HopsFS architecture involves three main components:
 \begin{enumerate}
     \item a set of namenodes which process client and datanode RPC requests as well as performing background periodic maintenance tasks such as re-replication of blocks which keep the cluster  in the correct state
     \item a set of datanodes which store block data and checksums and report their status to the namenodes using heartbeats
     \item a metadata storage cluster which stores and handles modification of the cluster metadata by the namenodes
 \end{enumerate}
-In order to allow clients to perform operations on the local cluster, which is one of the key objectives of the project, each of the clusters needs a complete copy of all metadata and all data required for the system to function, as well as local running instances of all the main components.
+In order to allow clients to perform operations on the local cluster, which is one of the key objectives of the project, each of the clusters needs
+\begin{inparaenum}
+    \item a complete copy of all metadata
+    \item a complete copy of all filesystem data
+    \item local running instances of all the components required for the system to function on its own
+\end{inparaenum}.
 If this were not true, operations on the local cluster would require very expensive connections to a remote cluster, operations that would fail and render the local cluster inoperable in the event of remote cluster failure.
-Given that data and metadata are handled by two different parts of the system, data nodes and NDB respectively, the issues of replicating them will be discussed as two separate problems.
+Replicating the infrastructural components is by far the simplest task, as it only involves the deployment of a complete cluster in the other geographical location plus some configuration to connect the clusters.
+Management of filesystem metadata and blocks are, however, very complex problems and the focus of this thesis.
 
-\subsection{Metadata replication}
-In HopsFS, file system metadata HopsFS are stored and processed by a MySQL Cluster cluster.
-As discussed in section \ref{sec:mysql-cluster}, MySQL Cluster supports a variety of asynchronous schemes that can be used to replicate transactions between different geographically separate clusters by leveraging MySQL binary log replication.
-The hybrid active active replication scheme allows different metadata cluster to work on separate copies of the metadata, which is asynchronously distributed to all clusters in the replication ring.
-Per limitation of the conflict function selected (\texttt{NDB\$EPOCH\_TRANS}), only two clusters can be set up in this configuration, limiting the replication to two geographical areas.
-In order to further simplify the basic design, one cluster is designated as the active partition for all data, while another is designated as the passive.
-Following this, we will refer to the clusters as \emph{primary} for the cluster active for all partitions and \emph{secondary} for the cluster passive for all partitions. 
-All transactions committed on the primary cluster are durable, while transactions committed on the secondary cluster may be re-aligned if they are in conflict.
-Re-aligning involves undoing the conflicting transaction, as well as any transactions depending on it and the applying the changes originated on the primary.
-As previously mentioned, conflict tables, which are only present on the primary cluster, will contain the conflicting values for the rolled-back rows, allowing applications that access the database to react to conflicts in specific ways.
-
-While asynchronous propagation of transactions fulfills the requirement of maintaining a complete working copy of all data in both clusters, it undermines a number of processes in the namenode that rely on the consistent properties of the NDB database.
-
+\section{TODO: overview on how the system should behave}
