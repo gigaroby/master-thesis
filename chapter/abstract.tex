@@ -1,0 +1,11 @@
+The Hadoop platform is the most common solution to handle the explosion of big-data that both companies and research institutions are facing.
+In order to store such data, the Hadoop platform provides HDFS, a scalable distributed filesystem which runs on commodity hardware and enables linear scalability by adding new storage nodes.
+While storage capacity of the system can be increased by adding new storage nodes, the component that handles metadata for the filesystem, the namenode, is a single point of failure and cannot easily replaced or linearly scaled.
+The Hops projects provides an alternative implementation of the namenode, which increases performance and scalability by storing metadata on an external distributed NewSQL database called MySQL Cluster.
+With the new architecture, the system is much more scalable and can transparently manage the failover of namenodes which are now stateless components.
+HopsFS is, however, still limited to running within a single datacenter which can cause severe outages in case the entire datacenter becomes unavailable.
+Cloud native storage systems, such as Amazon's Simple Storage Service (S3), solve this problem by replicating data across different, geographically distant datacenters, so that the failure of any given zone does not cause data unavailability.
+The objective of this thesis is to enable HopsFS to work across geographical regions while, as far as possible, maintaining the semantics of a POSIX-style hierarchical filesystem.
+We leverage asynchronous replication functionality provided by MySQL Cluster to obtain replication of metadata across geographical regions and we present a detailed analysis on how to maintain the consistency properties of HDFS in such an environment.
+Furthermore, we analyze the issue of split brain scenarios and propose a way for namenodes to detect this condition and continue operating correctly.
+Finally, we discuss the changes to the codebase which are required to implement the proposed plan.
