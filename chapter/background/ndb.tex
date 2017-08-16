@@ -23,7 +23,14 @@ If replication is set to a value higher than one the cluster is divided in logic
 The number of node groups $N_g$ formed is controlled by $N_g = \frac{N_t}{R}$ where $N_t$ is the total number of data nodes in the system and $R$ is the replica factor.
 This also implies that, by setting the replica factor $R$, the number of datanodes in the cluster must necessarily be a multiple of $R$ itself.
 Every write for a data partition will be replicated on every node in the assigned replica group so that, in case of failure of any node, the system will still be able to serve all the requests, albeit at a slower rate.
-Image \ref{img:node-groups} shows an example scenario for a cluster with $N_t = 12$ and $R = 3$.
+Image \ref{fig:ndb-node-groups} shows an example scenario for a cluster with $N_t = 12$ and $R = 3$.
+
+\begin{figure}[h]
+\caption{Node groups}
+\label{fig:ndb-node-groups}
+\centering
+\includegraphics[width=0.95\textwidth]{images/placeholder.png}
+\end{figure}
 
 In order to provide clients with synchronous transaction, which maintain data consistency, NDB employes a two phase commit protocol (2PC) when committing transactions.
 A 2PC protocol run is divided into two phases: \begin{inparaenum}
@@ -39,10 +46,11 @@ Clients of the system are expected to handle transaction failure, and the typica
 To detect failures, data nodes arrange themselves in a virtual ring and send heartbeat messages to the next node in the circle.
 If one node fails to acknowledge a heartbeat three consecutive times, it is considered failed and the cluster enters a split brain protocol, during which it is not able to accomplish any work.
 The purpose of a split brain protocol is to identify and designate a subset of nodes in the cluster that still have a complete copy of all partitions and can therefore continue to function, albeit in a degraded fashion.
-To identify the \emph{sub-cluster} that continues to function, each sub-cluster executes a series of checks: \begin{itemize}
-    \item if the sub-cluster includes all nodes from any node group, this is the only possible functional sub-cluster and can \textbf{continue to operate}
-    \item if the sub-cluster does not contain at least one node in each node group, this sub-cluster is not functional and can \textbf{shut-down}
-    \item if the above conditions are both false, there is more than one functional sub-cluster, \textbf{defer the decision to an arbitrator}
+To identify the \emph{sub-cluster} that continues to function, each sub-cluster executes a series of checks:
+\begin{itemize}
+    \item if the sub-cluster includes all nodes from any node group, this is the only possible functional sub-cluster and can \textbf{continue to operate},
+    \item if the sub-cluster does not contain at least one node in each node group, this sub-cluster is not functional and can \textbf{shut-down},
+    \item if the above conditions are both false, there is more than one functional sub-cluster, \textbf{defer the decision to an arbitrator}.
 \end{itemize}
 In order to avoid a split brain scenario, where two or more subsets of the cluster continue to apply diverging modifications to the data in parallel, the arbitrator allows only one of the functioning clusters to continue.
 The arbitrator select only one cluster by only replying positively to the first subset contacting it, instructing all following sub-clusters to shutdown.
@@ -118,6 +126,14 @@ Such a system offers eventual consistency semantics for reads as followers may s
 If a stronger consistency level is required, for instance by a client which needs a read-your-writes level of consistency, the only solution is to perform such reads on the master node.
 While this system is relatively simple to implement and operate it is unsuitable for systems where write traffic (or consistent read traffic) increases to the point where it can no longer be handled by a single master.
 
+\begin{figure}[h]
+\caption{Master-follower topology}
+\label{fig:master-follower}
+\centering
+\includegraphics[width=0.95\textwidth]{images/placeholder.png}
+\end{figure}
+
+
 \paragraph{Balanced master-follower}
 A solution which allows better scaling of write traffic is the so called Balanced master-follower or Partitioned Active/Active scheme.
 In this scenario all of the nodes are configured as master for some partition of the data, while they act as followers for all other partitions, as shown in figure \ref{fig:balanced-master-follower}.
@@ -129,6 +145,13 @@ Fail over also requires care as one of the nodes may become overloaded if it bec
 While this system improves on the write scalability limits posed by the master-follower design, it still requires complex routing to perform writes.
 The routing is necessary so that, when two applications try to write conflicting data, the writes are effectively serialized at the active partition, which will reject one of the two writes thus implementing consistent writes.
 
+\begin{figure}[h]
+\caption{Balanced master-follower topology}
+\label{fig:balanced-master-follower}
+\centering
+\includegraphics[width=0.95\textwidth]{images/placeholder.png}
+\end{figure}
+
 \paragraph{Optimistic Active Active}
 In many parallel applications, conflicting operations are relatively rare, when compared to the total volume of write traffic.
 While pessimistic systems such as master-follower or balanced master-follower simply make it impossible for write conflicts to happen, at the expense of limited write scalability or more complex routing logic, optimistic systems handle conflicts as they arise.
@@ -137,10 +160,25 @@ An optimistic active active replication system, shown in figure \ref{fig:optimis
 When a transaction is committed, it is propagated asynchronously to the other nodes which will check for conflicts. If a conflict is detected it is rolled back.
 Clients of such a system must accept that they may read data which is stale or not durable because it may be rolled back, but the overall system is much more scalable and does not require complex routing as both reads and writes can be executed at any node.
 
+\begin{figure}[h]
+\caption{A topology with two MySQL Cluster clusters replicating with active to active configuration}
+\label{fig:optimistic-active-active}
+\centering
+\includegraphics[width=0.95\textwidth]{images/placeholder.png}
+\end{figure}
+
 \paragraph{Hybrid Optimistic Active Active}
 A hybrid optimistic active active system, shown in figure \ref{fig:hybrid-optimistic-active-active} works like its purely optimistic counterpart with the additional advantage of defining an active node for each partition.
 Writes performed on the active node for the partition will be durable and will not be rolled back, while writes on other nodes will be rolled back if they are in conflict with those originating on the active node.
 This system still enables the benefits of the optimistic active active scheme, by routing traffic to the passive nodes while allowing applications that require write consistency or read-your-write semantics to be routed to the active node for the partition.
+
+\begin{figure}[h]
+\caption{Hybrid optimistic active to active topology}
+\label{fig:hybrid-optimistic-active-active}
+\centering
+\includegraphics[width=0.95\textwidth]{images/placeholder.png}
+\end{figure}
+
 
 \subsubsection{Dealing with conflicts in optimistic configurations}
 Optimistic systems require the ability to detect conflicting updates and reject them in order to avoid diverging replica states.
@@ -149,12 +187,20 @@ In the simple case of a numeric value which is set to 1 and is incremented by 1 
 
 MySQL Cluster provides a sophisticated mechanism to both detect and resolve (merge) conflicts in a optimistic active active replication scheme.
 All of the available methods are documented in the MySQL Cluster documentation website \cite{mysql-cluster-documentation-replication}, but this section gives an overview of the \texttt{NDB\$EPOCH} and \texttt{NDB\$EPOCH\_TRANS} merging functions, which can detect and resolve conflicts at a transaction granularity.
-The \texttt{NDB\$EPOCH} functions can only be applied in the context of a hybrid optimistic active active system with two replicating clusters as shown in figure \ref{fig:two-active-active-clusters}.
+The \texttt{NDB\$EPOCH} functions can only be applied in the context of a hybrid optimistic active active system with two replicating clusters as shown in Figure \ref{fig:two-active-active-clusters}.
 Partitioning of data in this case can be either at table or database level, but this chapter will assume only one database configured as active on one cluster and passive on the other.
 We will refer to the active cluster as \emph{primary} and to the passive cluster as \emph{secondary}.
 As previously mentioned, the hybrid optimistic setup implies that all writes performed on the primary cluster are durable, while all writes on the secondary cluster may be rolled back.
-As shown in figure \ref{fig:two-active-active-clusters}, one SQL node per cluster acts as both master publishing changes for the other cluster to consume and follower fetching changes from the other cluster, tough this is not the only possible set-up.
+As shown in Figure \ref{fig:two-active-active-clusters}, one SQL node per cluster acts as both master publishing changes for the other cluster to consume and follower fetching changes from the other cluster, tough this is not the only possible set-up.
 The resulting setup is a circular replication scheme, which is necessary for the conflict detection and merging functions to work.
+
+\begin{figure}[h]
+\caption{A topology with two MySQL Cluster clusters replicating with active to active configuration}
+\label{fig:two-active-active-clusters}
+\centering
+\includegraphics[width=0.95\textwidth]{images/placeholder.png}
+\end{figure}
+
 
 Conflict detection is performed on the primary cluster, as any conflicts caused by the primary cluster, which would be handled by the secondary cluster, are automatically ``won'' by the primary cluster.
 When a conflict is detected the master emits events that re-align the secondary cluster with the state of the primary cluster, in effect rolling back any conflicting changes.

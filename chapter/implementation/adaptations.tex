@@ -1,6 +1,114 @@
 \subsection{Adaptations}
-This section describes the changes in the Hops code base that constitute the practical work for this thesis.
+As previously described in Section \ref{sec:dal}, the DAL was structured around access to a globally available connector, which in turn assumed a connection to a single cluster.
+Due to these assumptions, the majority of the implementation work accomplished in the context of this thesis was to improve the DAL to allow multiple open connections to different databases.
+Multiple database connections are necessary for the namenodes in the secondary cluster to route some queries to the local metadata storage cluster and some others to the primary cluster.
+In addition to this, to be able to recover from network partitions, the DAL must be able to reconnect to the metadata storage cluster in case of failure and notify other components of this.
+Notifications of disconnections and reconnections are necessary to correctly manage state changes for the system, namely enter and exit partition mode, both on the primary and on the secondary cluster.
 
-\subsubsection{Multi Zone Data Access Layer}
+\paragraph{Connection to multiple database}
+As previously discussed, metadata accesses are not performed by directly accessing the connector but rather by using a request handler.
+When operating on multiple databases there needs to be a mechanism for a request handler to be executed either on the local or the primary metadata cluster.
+Note that a request for the local database still connects to the primary if the namenode requesting it is itself in the primary zone.
+While a first implementation required every request handler to explicitly provide the database to connect to as a parameter this required modification of all code locations where a transaction handler is created.
+This method is also extremely error prone as it disseminates the information on where to execute operations around the codebase.
+The better solution is to associate to every operation type the database where the operation is to be executed.
+This result is achieved by associating a constant to every member of the \texttt{OperationType} enumeration as shown in Listing \ref{lst:optype-enum}.
+By extracting the database information from the \texttt{opType} the request handler can operate transparently without changes in signature and all the modifications are concentrated in one place, the operation type enumerator.
 
-\subsubsection{Split brain detectors}
+\begin{lstlisting}[label={lst:optype-enum}, caption={The OperationType enum}]
+public interface OperationType {
+    TransactionCluster getCluster();
+} 
+
+public enum HDFSOperationType implements OperationType {
+    INITIALIZE(TransactionCluster.PRIMARY),
+    ACTIVATE(TransactionCluster.PRIMARY),
+    META_SAVE(TransactionCluster.PRIMARY),
+    SET_PERMISSION(TransactionCluster.PRIMARY),
+    SET_OWNER(TransactionCluster.PRIMARY),
+    SET_OWNER_SUBTREE(TransactionCluster.PRIMARY),
+    GET_BLOCK_LOCATIONS(TransactionCluster.PRIMARY),
+    GET_STATS(TransactionCluster.PRIMARY),
+    CONCAT(TransactionCluster.PRIMARY),
+    // many more
+
+    private TransactionCluster cluster;
+
+    HDFSOperationType(TransactionCluster c) {
+        this.cluster = c;
+    }
+
+    private TransactionCluster getCluster() {
+        return this.cluster;
+    }
+}
+\end{lstlisting}
+
+Request handlers obtain a connector to a specific database using a \emph{multizone storage connector}, shown in Listing \ref{lst:multizone-connector} along with .
+This interface, which is implemented both in the primary cluster and in the secondary cluster, allows clients to obtain a concrete connector towards a single database.
+In future iterations of the project, the multizone connector will also modify its behaviour during network partitions, for instance by always returning the local connector on the secondary cluster during a cluster crash.
+\begin{lstlisting}[label={lst:multizone-connector}, caption={The MultiZoneStorageConnector interface}]
+/**
+ * This class allows its clients to retrieve a connector 
+ * for the required cluster (primary or local).
+ */
+public interface MultiZoneStorageConnector {
+  /**
+   * This method returns a StorageConnector for the appropriate cluster.
+   * @param cluster whether to connect to the local or primary cluster
+   * @return the appropriate storage connector
+   * @throws StorageException if a connector cannot be returned
+   */
+  StorageConnector connectorFor(TransactionCluster cluster)
+    throws StorageException;
+}
+\end{lstlisting}
+
+The database connector was also modified to allow for re-connection capabilities and notifications of changes in state by implementing the \texttt{Reconnector} interface shown in Listing \ref{lst:reconnector}.
+The information on whether the connection is functioning or not is used on the secondary cluster by a \texttt{partition monitor} to perform split brain detection as shown in Algorithm \ref{algo:detection-secondary} and Listing \ref{lst:detection-secondary}.
+When a split brain is detected by a partition monitor, a configurable action is executed and this action will, in the future, perform the state changes required by the system to handle the partition.
+\begin{lstlisting}[caption={Implementation of the partition detection algorithm in the secondary cluster}, label={lst:detection-secondary}]
+/**
+ * This methods performs partition detection for the secondary cluster.
+ * A partition is detected in the secondary cluster if 
+ * all the live namenodes lost the connection to the primary cluster.
+ * Additionally, this class updates the state 
+ * of the node's connection in the leader election procedure.
+ */
+@Override
+protected PartitionEvent tick() {
+    boolean connected = connector.isConnectedToPrimary();
+
+    // update the state of the connection in the leader election procedure
+    leaderElection.setConnectedToPrimary(connected);
+    // if connected to primary there is at least one node connected
+    // (therefore no partition).
+    if (connected) {
+        return PartitionEvent.RESOLVED;
+    }
+
+    // if at least one of the other nodes is connected,
+    // the partition is resolved.
+    SortedActiveNodeList namenodes = 
+        leaderElection.getActiveNamenodes();
+    // this can happen if run before the first leader election round
+    // unknown is ignored
+    if (namenodes == null) {
+        return PartitionEvent.UNKNOWN;
+    }
+    for (ActiveNode n: namenodes.getActiveNodes()) {
+        if (n.isConnectedToPrimary()) {
+            return PartitionEvent.RESOLVED;
+        }
+    }
+
+    // if all the active namenodes aren't connected to the database,
+    // detect a partition.
+    return PartitionEvent.DETECTED;
+}
+\end{lstlisting}
+
+While the work performed so far is necessary to allow further progress towards the implementation of the theoritical framework described in this chapter, there is still much to do.
+The distinction between network partition and cluster crash is not implemented and will require an external system like ZooKeeper to perform arbitration.
+The routing of operations to the local database and all of the changes to the client to allow it to perform fully consistent reads are not implemented.
+Finally the behaviour of the system will need to be tested to make sure that it conforms with the expected behaviour described.

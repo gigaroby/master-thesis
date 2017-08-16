@@ -49,6 +49,7 @@
 %% the 2nd when producing a ps file (use eps figures, don't use ps figures!).
 \documentclass[english,12pt,a4paper,pdftex,sci,utf8]{aaltothesis}
 %\documentclass[english,12pt,a4paper,dvips]{aaltothesis}
+\linespread{1.05}
 
 %% To the \documentclass above
 %% specify your school: arts, biz, chem, elec, eng, sci
@@ -79,10 +80,24 @@
   pdftitle={LenticularFS: scalable filesystem for the cloud},
   pdfauthor={Roberto Bampi}, pdfkeywords={HDFS, filesystem}}
 
+\lstset{
+    language=Java,
+    basicstyle=\small\ttfamily,
+    keywordstyle=\color{blue}\ttfamily,
+    stringstyle=\color{red}\ttfamily,
+    commentstyle=\color{green}\ttfamily,
+    morecomment=[l][\color{magenta}]{\#},
+    numbers=left,
+    showspaces=false,
+    showstringspaces=false,
+    frame=L,
+}
 
 %% All that is printed on paper starts here
 \begin{document}
 \renewcommand{\thesissupervisorname}{Thesis supervisors}
+
+
 
 %% Change the school field to specify your school if the automatically 
 %% set name is wrong
@@ -154,7 +169,6 @@
 
 %% Note that when writting your master's thesis in English, place
 %% the English abstract first followed by the possible Finnish abstract
-
 %% English abstract.
 %% All the information required in the abstract (your name, thesis title, etc.)
 %% is used as specified above.
@@ -245,16 +259,15 @@ Otaniemi, 16.1.2015
 
 \section{Literature review}
 \label{sec:review}
+\input{chapter/review/intro}
 \input{chapter/review/gfs}
 \input{chapter/review/azure}
 \input{chapter/review/calvin}
-\input{chapter/results}
 \clearpage
 
 \section{Contribution}
 \label{sec:implementation}
 \input{chapter/implementation/core}
-\input{chapter/implementation/overview}
 \input{chapter/implementation/metadata}
 \input{chapter/implementation/blocks}
 \input{chapter/implementation/adaptations}

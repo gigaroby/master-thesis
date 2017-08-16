@@ -10,7 +10,7 @@ A partial exception to this rule are cloud provider's Availability Zones (or jus
 They achieve this result by placing different data-center buildings just hundreds of kilometers from each other, connecting them to different power providers and ISPs and providing dedicated connection between the data centers themselves.
 Cloud provider zones are, however, insignificant to our goal as a system designed to run in the former scenario will only perform better when deployed in the latter.
 
-As shown in chapters \ref{sec:hdfs} and \ref{sec:hopsfs}, the HopsFS architecture involves three main components:
+As shown in Section \ref{sec:hdfs} and \ref{sec:hopsfs}, the HopsFS architecture involves three main components:
 \begin{enumerate}
     \item a set of namenodes which process client and datanode RPC requests as well as performing background periodic maintenance tasks such as re-replication of blocks which keep the cluster  in the correct state
     \item a set of datanodes which store block data and checksums and report their status to the namenodes using heartbeats
@@ -25,5 +25,3 @@ In order to allow clients to perform operations on the local cluster, which is o
 If this were not true, operations on the local cluster would require very expensive connections to a remote cluster, operations that would fail and render the local cluster inoperable in the event of remote cluster failure.
 Replicating the infrastructural components is by far the simplest task, as it only involves the deployment of a complete cluster in the other geographical location plus some configuration to connect the clusters.
 Management of filesystem metadata and blocks are, however, very complex problems and the focus of this thesis.
-
-\section{TODO: overview on how the system should behave}

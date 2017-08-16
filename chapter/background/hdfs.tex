@@ -1,6 +1,7 @@
 \subsection{The Hadoop Filesystem}
+\label{sec:hdfs}
 The Apache Hadoop Filesystem \cite{DBLP:conf/mss/ShvachkoKRC10}, or HDFS for short, is a scalable, distributed filesystem written in Java and originally developed for the Hadoop MapReduce computing framework.
-Its design is heavily inspired by that of the Google File System \cite{ghemawat2003google} (GFS).
+Its design is heavily inspired by that of the Google File System (GFS) \cite{DBLP:conf/sosp/GhemawatGL03}.
 
 The system is designed to handle very large files, typically several gigabytes to terabytes in size, by partitioning them in \emph{blocks} and storing the blocks on different machines.
 To increase reliability, blocks are replicated multiple times, three by default, on different failure domains.
@@ -23,15 +24,17 @@ In HDFS, RPC is used both for communication between clients and the system and f
 \caption{HDFS components}
 \label{fig:hdfs-block-diagram}
 \centering
-\includegraphics[width=0.9\textwidth]{images/placeholder.png}
+\includegraphics[width=0.95\textwidth]{images/placeholder.png}
 \end{figure}
 
-The HDFS system contains three main components, as shown in figure \ref{fig:hdfs-block-diagram}:
-\begin{inparaenum}[1)]
-\item one \emph{namenode}, with an optional hot standby copy
-\item a set of \emph{datanodes}
-\item \emph{clients} interacting with the system
-\end{inparaenum}.
+The HDFS system contains three main components, as shown in Figure \ref{fig:hdfs-block-diagram}:
+\begin{enumerate}
+\item one \emph{namenode}, with an optional hot standby copy,
+\item a set of \emph{datanodes}, and
+\item \emph{clients} interacting with the system.
+\end{enumerate}
+
+\clearpage
 
 \paragraph{The namenode} is the central entity responsible for storing and applying modification to the system's metadata.
 Metadata stored in the namenode includes information on the state and health of the cluster, information on how files are stored and replicated and finally information on the state of operations being executed.

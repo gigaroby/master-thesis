@@ -24,8 +24,53 @@ While the definition is very specific, and network partitions can typically mani
 In case of failure on this particular (virtual) link, all connectivity between data centers would effectively be cut, and, a shown in Microsoft's study on network failures \cite{DBLP:conf/sigcomm/GillJN11}, links between data-centers take the longest to repair.
 Because we can assume that split brain scenarios are going to last a non-negligible amount of time to repair, regardless of cause, determining when such an event is happening is necessary to allow clusters to adapt their behaviour.
 
+\subsubsection{Overview}
+As previously mentioned, there are three possible states the system can be in at any given time.
+This section provides a high level overview of the three states and the expected behaviour and trade-offs in each while a detailed account of the mechanics that allow the system to detect its state and react accordingly is provided in the following sections.
+
+In \textbf{nominal operating conditions}, where the connection between the different geographical areas is functioning properly, all namenodes apply metadata modifications directly to the primary cluster and execute read operations on the local cluster as shown in Figure \ref{fig:system-nominal-conditions}.
+This type of system, which is conceptually similar to a master-slave topology, is extremely effective in read-intensive workloads because it delegates all read operations to the local cluster.
+Due to the way operations are handled on the secondary cluster, it is, however, possible for clients connected to this zone to modify metadata in such a way that newly written data will not be immediately available for local reads.
+If a client creates or appends content to a file and then tries to read said file, due to the asynchronous nature of the replication, there is no guarantee that metadata will be available on the secondary cluster and, as a result, the client may read stale data or not find the file at all.
+To guarantee that a client process metadata modification is immediately available for read from the same process, a behaviour commonly referred to as \emph{read-your-writes}, the client can optionally perform \emph{fully consistent reads} by reading metadata from the primary cluster.
+Because this operation will put further strain on the primary cluster, it is to be used only when read-your-writes behaviour is required for correctness such as when using files as locks.
+In summary, the system in nominal condition behaves as it would in a single cluster scenario except for the handling of reads on the secondary cluster, where all metadata will be delayed due to asynchronous replication.
+
+\begin{figure}[h]
+\caption{System in nominal conditions: reads go to the local database, while writes are directed to the primary.}
+\label{fig:system-nominal-conditions}
+\centering
+\includegraphics[width=0.95\textwidth]{images/placeholder.png}
+\end{figure}
+
+During a \textbf{cluster crash}, a split brain scenario caused by the failure of either cluster, the remaining cluster can operate normally and execute all possible operations (shown in Figure \ref{fig:system-cluster-crash}).
+In case the failed cluster is the secondary, the namenodes in the primary zone can continue without any modification to the behaviour but, if the failed cluster is the primary, the namenodes in the secondary zone require some adaptations.
+Given that, in nominal operating conditions, namenodes in the secondary cluster execute all operations on the primary cluster, in case of failure of the primary zone a failover to the local cluster is required.
+Once the primary cluster becomes available again, the secondary cluster invalidates all leases and both clusters wait for database replication to completely synchronize the primary zone with the secondary before allowing modifications again.
+This process is necessary to guarantee that no conflicts are caused during transitions between states.
+To summarize, in case of cluster crash the surviving cluster operates normally except for some contingencies during state transitions which are necessary to prevent conflicts.
+
+\begin{figure}[h]
+\caption{System during a cluster crash: one of the two clusters behaves normally while the other is unavailable.}
+\label{fig:system-cluster-crash}
+\centering
+\includegraphics[width=0.95\textwidth]{images/placeholder.png}
+\end{figure}
+
+During a \textbf{network partition}, a situation where the two clusters function correctly but cannot communicate with each other as shown in Figure \ref{fig:system-network-partition}, concurrent modifications to metadata must be only allowed in such a way that prevents uncorrectable conflicts from happening.
+To guarantee the absence of conflicts that cannot be automatically solved, the system in this state does not allow clients to perform a subset of metadata modifications.
+More specifically, the only metadata modification allowed is the creation of new files and the subsequent append of data to such files, an operation for which automatic conflict resolution is possible in a deterministic fashion.
+Any other operation is disallowed and an error is sent to the client attempting it.
+
+\begin{figure}[h]
+\caption{System during a network partition: both clusters continue operating in a reduced capacity while they are unable to communicate.}
+\label{fig:system-cluster-crash}
+\centering
+\includegraphics[width=0.95\textwidth]{images/placeholder.png}
+\end{figure}
+
 \subsubsection{Split brain detection}
-We propose two different procedures, one for the primary and one for the secondary cluster, that allow namenodes to detect split brain scenarios with a minimum of internal coordination.
+In order to detect wheter the system is operating normally or it is suffering from a split brain we propose two different procedures, one for the primary and one for the secondary cluster, that allow namenodes to detect split brain scenarios with a minimum of internal coordination.
 Coordination is provided by the leader election procedure described by Niazi et al \cite{DBLP:conf/fast/NiaziIHDGR17}, and discussed previously which is already present within HopsFS.
 
 \paragraph{Detection on primary cluster}

@@ -1,4 +1,5 @@
 \subsection{HopsFS}
+\label{sec:hopsfs}
 HopsFS \cite{DBLP:conf/fast/NiaziIHDGR17} is a fork of Apache HDFS created with the explicit goal of solving the biggest scalability and availability limits that are intrinsic to the single-namenode nature of the system: 
 \begin{inparaenum}[i)]
     \item amount of metadata limited by the main memory of the machine running the namenode process
@@ -48,18 +49,175 @@ HopsFS eliminates the reliance on Zookeeper by leveraging the metadata storage s
 \cite{DBLP:journals/jacm/ChandraHT96}
 
 \subsubsection{The (meta)Data Access Layer}
-The data access layer (DAL) is the component in HopsFS that replaces all interactions with in-memory metadata objects with transactions to the metadata storage cluster.
-It is divided into two different packages, the data access layer itself, which is a collection of interfaces and common behaviour and the implementation layer, \texttt{hops-metadata-dal-impl-ndb}, which implements the interfaces and connection parameters for the MySQL Cluster database software.
-While this theoretically allows NewSQL databases other than MySQL Cluster to be used as the metadata storage system, MySQL Cluster is the only backend currently implemented.
-As such, any references to the DAL in this document refer to both the common and implementation specific parts.
-
-The DAL provides two services to Hops: 
-\begin{inparaenum}[1)]
-    \item it manages the life-cycle of database connections for both MySQL and NDB, and
-    \item it provides a high-level object based API that clients (HopsFS and HopsYARN) use to manage transactions and locking.
+The Data Access Layer, DAL for short, is the Hops component that allows the delegation of metadata handling to the MySQL Cluster database.
+To achive this, the component provides two distinct pieces of functionality:
+\begin{inparaenum}[i)]
+    \item management of the life-cycle of database connection, including various optimizations to reduce network round trips and,
+    \item abstractions that allow engineers working on Hops to convert all memory metadata accesses in database operations in a convenient way.
 \end{inparaenum}
+Formally, the data access layer provides only the interfaces that Hops itself uses to describe accesses to metadata, delegating the implementation of database access to a further library that provides concrete implementations.
+Given that in Hops only one such implementation exists (\textit{hops-metadata-dal-impl-ndb}), this chapter will consider both DAL and DAL-implmenetation as a whole without making the distinction explicit.
 
-\paragraph{Connection Management}
+\paragraph{Connection management}
+The DAL provides management of the life-cycle of database connections to a MySQL Cluster cluster.
+Specifically, upon configuration, the DAL creates two persistent connectors to the same MySQL Cluster cluster: one that connects to NDB using the native protocol and the ClusterJ java library and one that connects to SQL nodes using the standard JDBC MySQL driver.
+The reason to use both a SQL driver and the native NDB protocol is that, while the NDB protocol is very fast at performing primary-key based operations, more complex operations such as joins and deletes are not supported and can only be executed through the SQL nodes.
+Given that the performance of Hops is determined mostly by how fast it accesses metadata, the DAL must be as performant as possible.
+To achieve better performance, this part of the DAL library implements optimizations aimed at reducing connection overhead, thus allowing a greater number of operations per second.
+The main technique for this is connection pooling, which associates each open connection to a thread that will use it for all operations.
+By allowing a thread to re-use the same connection for all operations, the overhead of opening the connection is effectively eliminated.
+Connections are only closed in case of shutdown of Hops or errors on the connection itself, in which case the connection is re-opened at the next use. 
+The connector itself is provided to clients as a global object, accessible to any component that requires it and it is initialized and configured in \texttt{Namenode.java}.
 
-The DAL maintains a set (pool) of connections to the metadata storage cluster.
+\paragraph{Database access}
+Aside from managing database connections, the DAL provides abstractions that are used to convert all memory metadata accesses into accesses to the metadata storage layer.
+The main abstraction provided is the \emph{request handler}, a structure that provides information on the type of operation being performed (the \texttt{OPCODE}) and the procedure to execute on the metadata, whether read-only or a modification.
+When the handler is executed it performs the procedure in the context of a database transactions where errors will be handled by rolling-back the transaction itself, guaranteeing atomicity of metadata modifications.
 
+The DAL provides two types of request handlers, the \emph{lightweight request handlers} which execute the operations as described above and the \emph{transactional request handlers} that apply most metadata modifications in memory before committing them to the database with the goal of reducing database round-trips.
+
+In a \emph{lightweight request handler}, shown in Listing \ref{lst:lrh}, every modification to the metadata is concretely executed as a database query, causing a large number of network operations.
+In case of transaction handlers with very large number of modifications, the network round-trips rapidly become the performance bottleneck.
+
+To increase performance in modification heavy handlers, \emph{transactional request handlers}, shown in Listing \ref{lst:trh}, operate in a different way with the goal of reducing network operations to a minimum.
+Transactional request handlers introduce a lock acquisition phase which is executed before the code for the transaction itself.
+In this phase, the DAL acquires locks on all the specified rows and materializes them as objects in the DAL memory.
+Upon execution, the handler operates on the in-memory representation of the objects either by modifying or deleting existing ones or by creating new ones through the \texttt{EntityManager} class.
+At the end of the perform phase, the objects are divided into four categories:
+\begin{inparaenum}[1)]
+    \item unmodified,
+    \item created,
+    \item deleted,
+    \item modified
+\end{inparaenum}
+and the required operations are executed in batch on the database.
+The perform phase is, therefore, still executed in the context of a database transaction, with the possibility of rollback in case of errors, but all operations on the database are executed at the end.
+Given that all of the materialized rows are locked for the duration of the database, there can be no conflicts upon commit at the end of the handler.
+Note that the handler can request read locks as well as write locks and, in that case, the rows locked in read mode cannot be modified.
+
+Replacing all memory accesses with transaction handlers which acquire the minimum amount of locks required to perform the operation, HopsFS achieves a much more granular level of concurrency compared to the in-memory global lock, which allows it to execute a much greater number of concurrent operations.
+
+
+\begin{lstlisting}[label={lst:trh}, caption={Transactional request handler for the rename operation}]
+OperationType opType
+if(isUsingSubTreeLocks) {
+    opType = HDFSOperationType.SUBTREE_RENAME;
+} else {
+    opType = HDFSOperationType.RENAME;
+}
+new HopsTransactionalRequestHandler(opType, src) {
+    @Override
+    public void acquireLock(TransactionLocks locks)
+    throws IOException {
+        LockFactory lf = LockFactory.getInstance();
+        locks.add(lf.getRenameINodeLock(
+            nameNode, INodeLockType.WRITE_ON_TARGET_AND_PARENT,
+            INodeResolveType.PATH, true, src, dst))
+        .add(lf.getBlockLock())
+        .add(lf.getBlockRelated(
+            BLK.RE, BLK.CR, BLK.UC,
+            BLK.UR, BLK.IV, BLK.PE, BLK.ER));
+        if (dir.isQuotaEnabled()) {
+            locks.add(lf.getQuotaUpdateLock(
+                true, src, dst));
+        }
+        if (!isUsingSubTreeLocks) {
+            locks.add(lf.getLeaseLock(
+                LockType.WRITE))
+            .add(lf.getLeasePathLock(
+                LockType.READ_COMMITTED));
+        } else {
+            locks.add(lf.getLeaseLock(
+                LockType.WRITE))
+            .add(lf.getLeasePathLock(
+                LockType.WRITE, src));
+        }
+        if (erasureCodingEnabled) {
+            locks.add(lf.getEncodingStatusLock(
+                LockType.WRITE, dst));
+        }
+    }
+
+    @Override
+    public Object performTask(StorageConnector connector)
+    throws IOException {
+        if (NameNode.stateChangeLog.isDebugEnabled()) {
+            NameNode.stateChangeLog.debug(
+                "DIR* NameSystem.renameTo: with options - " + src + " to " + dst);
+        }
+
+        if (isInSafeMode()) {
+            throw new SafeModeException("Cannot rename " + src, safeMode);
+        }
+        if (!DFSUtil.isValidName(dst)) {
+            throw new InvalidPathException("Invalid name: " + dst);
+        }
+        for (MetadataLogEntry logEntry: logEntries) {
+            EntityManager.add(logEntry);
+        }
+
+        for (Options.Rename op: options) {
+            if (op == Rename.KEEP_ENCODING_STATUS) {
+                INode[] srcNodes = dir.getRootDir()
+                    .getExistingPathINodes(src, false);
+                INode[] dstNodes = dir.getRootDir()
+                    .getExistingPathINodes(dst, false);
+                INode srcNode = 
+                    srcNodes[srcNodes.length - 1];
+                INode dstNode = 
+                    dstNodes[dstNodes.length - 1];
+                EncodingStatus status = EntityManager.find(
+                    EncodingStatus.Finder.ByInodeId, dstNode.getId());
+                EncodingStatus newStatus = new EncodingStatus(status);
+                newStatus.setInodeId(srcNode.getId());
+                EntityManager.add(newStatus);
+                EntityManager.remove(status);
+                break;
+            }
+        }
+
+        removeSubTreeLocksForRenameInternal(
+            src, isUsingSubTreeLocks, subTreeLockDst);
+
+        dir.renameTo(
+            connector, src, dst, srcNsCount,
+            srcDsCount, dstNsCount, dstDsCount, options);
+        return null;
+    }
+}.handle(this);
+\end{lstlisting}
+
+\begin{lstlisting}[label={lst:lrh}, caption={Lightweight request handler }]
+new LightWeightRequestHandler(UsersOperationsType.GET_USER_GROUPS) {
+    @Override
+    public Object performTask(StorageConnector connector)
+    throws IOException {
+        boolean transactionActive = connector.isTransactionActive();
+
+        if (!transactionActive) {
+            connector.beginTransaction();
+        }
+
+        Integer userId = cache.getUserId(userName);
+        
+        User user;
+        if(userId == null) {
+            user = userDataAccess.getUser(userName);
+        } else {
+            user = userDataAccess.getUser(userId);
+        }
+
+        if (user == null) {
+            return null;
+        }
+
+        List<Group> groups = userGroupDataAccess
+            .getGroupsForUser(user.getId());
+
+        if (!transactionActive) {
+            connector.commit();
+        }
+
+        return new Pair<User, List<Group>>(user, groups);
+}.handle(this);
+\end{lstlisting}
