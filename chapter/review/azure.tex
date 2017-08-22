@@ -32,7 +32,7 @@ Each storage stamp is divided into three layers which perform different function
     \item the \emph{front end layer}, a stateless component that performs routing of requests to the appropriate partition layer process and streams large objects directly from the stream layer as an optimization for large files.
 \end{itemize}
 
-The \emph{stream layer} implements the basic storage primitives and it is accessed by the partition layer (the client).
+The \emph{Stream Layer} implements the basic storage primitives and it is accessed by the partition layer (the client).
 Its design is that of a append-only filesystem, and the interface provided to clients offers the usual operations:
 \begin{inparaenum}[i)]
     \item open,
@@ -66,7 +66,16 @@ All of the extents in a stream but the last are sealed.
 
 The stream layer is organized as two different components:
 \begin{itemize}
-    \item the Stream Manager (SM), which manages metadata and the state of 
+    \item the Stream Manager (SM), a component similar to HDFS's namenode and
+    \item the Extent Nodes (EN), components that perform a function similar to that of HDFS datanodes.
 \end{itemize}
+
+The \emph{Stream Manager} is a paxos group of nodes that perform functions similar to those of a HDFS namenode.
+Such functions include assigning extents, both primary and replicas, to extent nodes, performing periodic polling and re-replication of under-replicated blocks and the storage of metadata on streams.
+Streams are managed solely by the Stream Manager as a set of pointers to extents stored by Extent Nodes.
+\emph{Extent Nodes}, on the other hand, manage the physical storage of extents on disk.
+Each node completely manages a set of disks where extents are saved as NTFS files.
+For each extent the nodes also store an index that identifies block boundaries within the stream.
+Extent nodes also perform synchronous replication of extents to other nodes both during client writes and during re-replication as scheduled by the Stream Manager.
 
 \clearpage
