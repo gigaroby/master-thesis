@@ -62,8 +62,6 @@ This list is specified at cluster configuration time and can only be updated by 
 All the nodes that shut down as part of the split brain protocol must re-join the cluster through a management node upon restarting.
 It is worthy to note that, while the cluster is effectively able to access all data in the aftermath of a split brain protocol, the reduced capacity of one or more node groups can cause load spikes for the nodes that are left.
 
-\textbf{TODO: add scenarios with one node failure and actual split brain with arbitrator intervention}.
-
 NDB data nodes store all partition data in main memory.
 In case of data node shutdown, either planned or unplanned, all the partitions on the node are lost.
 While a restore procedure can, in principal, fetch copies of the partitions from other data nodes in the same node group this will either \begin{inparaenum}[1)]

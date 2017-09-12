@@ -127,9 +127,6 @@ With such a failure detector in place, detecting a split brain only requires che
   	\end{algorithmic}
 \end{algorithm}
 
-\textbf{TODO: network partition state machine here + explain}
-
-
 While namenodes are now capable of detecting a split brain independently, they don't have the capability of distinguishing between a network partition or a cluster crash.
 This capability can be provided by providing a system hosted in a third zone, independent from the first two, which will act as a tie-breaker and allow the systems to consistently know whether both zones are still live (network partition) or if the remaining cluster is the only one currently running.
 Such a system could be implemented in a variety of ways, for example by configuring a zookeeper cluster \cite{zookeeper} with three nodes: one in the primary zone, one in the secondary zone and the tie-breaker in the third zone.
