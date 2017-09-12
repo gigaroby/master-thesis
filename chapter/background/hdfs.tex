@@ -41,7 +41,7 @@ Metadata stored in the namenode includes information on the state and health of 
 Background threads in the namenode are also responsible for initiating periodic maintenance tasks such as block re-balancing and lease recovery.
 It is a server application written in the Java programming language and it accepts commands from clients via the RPC interface mentioned above.
 The namenode can also publish commands that will be executed by datanodes using the heartbeat mechanism.
-The heartbeat mechanism is described in detail in section \ref{sec:heartbeat}.
+The heartbeat mechanism is described in detail in Section \ref{sec:heartbeat}.
 In HDFS the namenode is a single point of failure and, in the event of namenode failure, manual fail-over to a hot-standby is required to restore service availability.
 
 \paragraph{Datanodes} are processes that handle physical storage of file blocks on disk.
@@ -59,7 +59,7 @@ HDFS follows a single-writer multiple-reader semantic for files, which means tha
 \subsubsection{Read pipeline}
 When performing a read operation on a file, the client begins by contacting the namenode to get the addresses of the datanodes containing the first block of the file.
 The list of datanodes holding a copy of the requested blocks is returned by the namenode sorted by proximity to the client requesting it according to the block placement policy.
-The concept of proximity and how blocks are distributed onto datanodes is explained in section \ref{sec:block-placement}.
+The concept of proximity and how blocks are distributed onto datanodes is explained in Section \ref{sec:block-placement}.
 The client then contacts the first datanodes to start reading the block.
 If the connection to the datanode fails at any point during the operation, the client connects to the next datanode in the list and remembers the failed datanode so that it does not try to attempt a connection to it during following block reads.
 If the checksum of the block read by the client is different from the expected one, the client communicates the checksum mismatch to the namenode before connecting to the next datanode in the list.
@@ -92,7 +92,7 @@ Depending on the phase where the failure happens, the client can require a new s
 Apache HDFS stores a configurable number, three by default, of copies of each data block.
 There are two primary reasons for this:
 \begin{inparaenum}[i)]
-\item to be able to withstand failure of a single data node holding the block
+\item to be able to withstand failure of a single data node holding the block and
 \item to increase throughput by allowing different readers to read different copies of the same block
 \end{inparaenum}.
 To fulfill both purposes it is important to consider the placement of blocks in the context of the overall network topology where HDFS is deployed.
@@ -105,12 +105,12 @@ To avoid the scenario where the loss of a single rack compromises the availabili
 As part of the setup for a write pipeline, the namenode provides the client with a ordered list of datanodes to write data to.
 If datanode rack placements are configured in the namenode, datanodes are selected as follows:
 \begin{itemize}
-\item if the client is in the cluster, like a MapReduce job, and there is a datanode on the machine, the first block is placed on the same machine as the client
-\item if, on the other hand, the client is not part of the cluster, the first block is placed on a random node as there is no way to compute a distance metric between the client and the datanodes
-\item the second block is placed on a machine in a different rack than the first block
-\item the third block is placed on another machine on the same rack as the second machine
-\item the fourth block, if present, is placed on a different machine on the same rack as the first machine
-\item if any more blocks are present, they are randomly distributed
+\item If the client is in the cluster, like a MapReduce job, and there is a datanode on the machine, the first block is placed on the same machine as the client.
+\item If, on the other hand, the client is not part of the cluster, the first block is placed on a random node as there is no way to compute a distance metric between the client and the datanodes.
+\item The second block is placed on a machine in a different rack than the first block.
+\item The third block is placed on another machine on the same rack as the second machine.
+\item The fourth block, if present, is placed on a different machine on the same rack as the first machine.
+\item If any more blocks are present, they are randomly distributed.
 \end{itemize}
 This distribution scheme minimizes the amount of inter-rack transfers necessary to spread the blocks on more than one availability zone.
 

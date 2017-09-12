@@ -3,7 +3,7 @@ Windows Azure Storage \cite{DBLP:conf/sosp/CalderWONSMXSWSHUKEBMAAHHBDAMSMR11}, 
 Unlike a classic distributed file-system where the only primitive offered is the file, WAS offers three different primitives to clients:
 \begin{itemize}
     \item a blob storage to process unstructured data,
-    \item a table storage to process structured data in tuple and
+    \item a table storage to process structured data in tuples, and
     \item a queue system to build message-passing based systems.
 \end{itemize}
 Typically data flowing into and out of the system is saved in blob storage, sent to workers as queue items and processed using the table store.
@@ -28,7 +28,7 @@ The target utilization for a storage stamp is 70\% and if it raises accounts are
 Each storage stamp is divided into three layers which perform different functions:
 \begin{itemize}
     \item the \emph{Stream Layer} stores data on disk, its design is very close to that of other distributed file-systems,
-    \item the \emph{Partition Layer} implements the higher level data abstractions discussed, provides transactions and strong consistency for objects, caches data and uses the Stream Layer to store the data for the objects and, finally,
+    \item the \emph{Partition Layer} implements the higher level data abstractions discussed, provides transactions and strong consistency for objects, caches data and uses the Stream Layer to store the data for the objects, and finally,
     \item the \emph{Front End Layer}, a stateless component that performs routing of requests to the appropriate Partition Layer process and streams large objects directly from the Stream Layer as an optimization for large files.
 \end{itemize}
 
@@ -42,7 +42,7 @@ Its design is that of a append-only filesystem, and the interface provided to cl
     \item delete,
     \item rename,
     \item read,
-    \item append and
+    \item append, and
     \item concatenate.
 \end{inparaenum}
 Operations in the stream layer work on streams, large files built as a list of pointers to extents.
@@ -86,7 +86,8 @@ Extent nodes also perform synchronous replication of extents to other nodes both
 
 The \emph{Partition Layer} builds upon the storage primitives of the Stream Layer to provide higher level APIs to application developers.
 Clients that access Windows Azure Storage can only use operations provided by the Partition Layer and cannot access the Stream Layer directly.
-The APIs provided to external clients allow users to store data and manipulate it in three different types of objects: \begin{inparaenum}[i)]
+The APIs provided to external clients allow users to store data and manipulate it in three different types of objects:
+\begin{inparaenum}[i)]
     \item blobs,
     \item tables and
     \item queues.
@@ -101,6 +102,6 @@ The Partition Layer manages OTs by dividing them in ranges and assigning ranges 
 The Partition Layer is itself organized as a set of three different components:
 \begin{itemize}
     \item a Partition Manager (PM) that splits the object table and assigns it to Partition Servers. It manages failures of Partition Servers and does load balancing by re-assigning partitions to other servers,
-    \item Partition Servers (PS) which serve requests for the partition of OTs they are managing and
+    \item Partition Servers (PS) which serve requests for the partition of OTs they are managing, and
     \item a Lock Service (LS) which provides a Paxos \cite{DBLP:journals/tocs/Lamport98} lock service used to elect a Partition Manager from the set of Partition Servers and to detect failures in Partition Servers.
 \end{itemize}

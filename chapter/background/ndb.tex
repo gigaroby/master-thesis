@@ -121,7 +121,7 @@ In the MySQL Cluster system, asynchronous replication and the conflict detection
 This technique is used to implement many different systems, depending on the application's requirements.
 
 \paragraph{Master-follower}
-A very common technique used to implement replication in systems where write traffic is mostly constant but read traffic is variable, is to have a simple single master/multiple follower system (shown in figure \ref{fig:master-follower}), where write traffic is only directed to the master and read traffic can go to any of the available followers.
+A very common technique used to implement replication in systems where write traffic is mostly constant but read traffic is variable, is to have a simple single master/multiple follower system (shown in Figure \ref{fig:master-follower}), where write traffic is only directed to the master and read traffic can go to any of the available followers.
 Such a system offers eventual consistency semantics for reads as followers may serve an outdated view of the master's state.
 If a stronger consistency level is required, for instance by a client which needs a read-your-writes level of consistency, the only solution is to perform such reads on the master node.
 While this system is relatively simple to implement and operate it is unsuitable for systems where write traffic (or consistent read traffic) increases to the point where it can no longer be handled by a single master.
@@ -136,7 +136,7 @@ While this system is relatively simple to implement and operate it is unsuitable
 
 \paragraph{Balanced master-follower}
 A solution which allows better scaling of write traffic is the so called Balanced master-follower or Partitioned Active/Active scheme.
-In this scenario all of the nodes are configured as master for some partition of the data, while they act as followers for all other partitions, as shown in figure \ref{fig:balanced-master-follower}.
+In this scenario all of the nodes are configured as master for some partition of the data, while they act as followers for all other partitions, as shown in Figure \ref{fig:balanced-master-follower}.
 Given that master or follower in this case is ambiguous we refer to nodes as either active or passive for a given partition.
 Data partitioning can be done at the database, table or even row level, depending on the application.
 The application is also responsible for selecting a partitioning scheme that distributes load evenly on all partitions.
@@ -156,7 +156,7 @@ The routing is necessary so that, when two applications try to write conflicting
 In many parallel applications, conflicting operations are relatively rare, when compared to the total volume of write traffic.
 While pessimistic systems such as master-follower or balanced master-follower simply make it impossible for write conflicts to happen, at the expense of limited write scalability or more complex routing logic, optimistic systems handle conflicts as they arise.
 The core principal behind this assumption is that, while handling conflicts may be expensive, it is a very rare operation and the total cost is therefore inferior to the constant cost of serializing writes in a master/active node.
-An optimistic active active replication system, shown in figure \ref{fig:optimistic-active-active}, allows write traffic on any node part of the cluster.
+An optimistic active active replication system, shown in Figure \ref{fig:optimistic-active-active}, allows write traffic on any node part of the cluster.
 When a transaction is committed, it is propagated asynchronously to the other nodes which will check for conflicts. If a conflict is detected it is rolled back.
 Clients of such a system must accept that they may read data which is stale or not durable because it may be rolled back, but the overall system is much more scalable and does not require complex routing as both reads and writes can be executed at any node.
 
@@ -168,7 +168,7 @@ Clients of such a system must accept that they may read data which is stale or n
 \end{figure}
 
 \paragraph{Hybrid Optimistic Active Active}
-A hybrid optimistic active active system, shown in figure \ref{fig:hybrid-optimistic-active-active} works like its purely optimistic counterpart with the additional advantage of defining an active node for each partition.
+A hybrid optimistic active active system, shown in Figure \ref{fig:hybrid-optimistic-active-active} works like its purely optimistic counterpart with the additional advantage of defining an active node for each partition.
 Writes performed on the active node for the partition will be durable and will not be rolled back, while writes on other nodes will be rolled back if they are in conflict with those originating on the active node.
 This system still enables the benefits of the optimistic active active scheme, by routing traffic to the passive nodes while allowing applications that require write consistency or read-your-write semantics to be routed to the active node for the partition.
 

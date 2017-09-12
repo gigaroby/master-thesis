@@ -7,7 +7,7 @@ GFS is designed as a distributed non-POSIX-compliant file-system for distributed
 It is a distributed system with three distinct roles: 
 \begin{itemize}
     \item a \emph{master node}, which maintains metadata on files and the state of the system,
-    \item a set of \emph{chunkservers} which perform storage of data on disk and directly interact with clients and
+    \item a set of \emph{chunkservers} which perform storage of data on disk and directly interact with clients, and
     \item clients which read and write data from/to the system.
 \end{itemize}
 In the system files are divided in chunks, which can grow up to 64 megabytes before another chunk is created.

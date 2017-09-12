@@ -1,6 +1,6 @@
 \subsection{Metadata management}
 In HopsFS, file system metadata are stored and processed by a MySQL Cluster cluster.
-As discussed in section \ref{sec:mysql-cluster}, MySQL Cluster supports a variety of asynchronous schemes that can be used to replicate transactions between different geographically separate clusters, without impacting the liveness and latency of the running NDB cluster.
+As discussed in Section \ref{sec:mysql-cluster}, MySQL Cluster supports a variety of asynchronous schemes that can be used to replicate transactions between different geographically separate clusters, without impacting the liveness and latency of the running NDB cluster.
 The hybrid active active replication scheme allows different metadata clusters and namenodes to operate on separate copies of the metadata, which is asynchronously distributed to all clusters in the replication ring.
 Per limitation of the conflict function selected (\texttt{NDB\$EPOCH\_TRANS}), only two clusters can be set up in this configuration, limiting the replication to two geographical areas.
 In order to further simplify the basic design, one cluster is designated as the active partition for all data, while another is designated as the passive.
@@ -79,7 +79,7 @@ To detect a split brain scenario on the primary cluster, we need to ascertain wh
 While we could implement a distributed failure detector to check for liveness of nodes in the secondary zone, HopsFS already exposes the failure detector built into the leader election procedure.
 In the context of multiple data-centers, the leader election procedure is extended to include both namenodes from the primary and secondary cluster and a field in every row of the election table, to indicate the cluster the node belongs to.
 Nodes from the secondary cluster connect directly to the primary cluster to perform leader election which means that, both in case of network partition and secondary cluster failure, the nodes would eventually be marked as not live by the failure detector.
-With all of the prerequisites in place, the algorithm to detect network partitions on the primary cluster is illustrated in algorithm \ref{algo:detection-primary}.
+With all of the prerequisites in place, the algorithm to detect network partitions on the primary cluster is illustrated in Algorithm \ref{algo:detection-primary}.
 
 \begin{algorithm}[!ht]
 	\begin{algorithmic}[1]
@@ -105,7 +105,7 @@ One possible solution would be to have a table on the local database where namen
 Given that namenodes can fail at any time, however, old entries from crashed nodes could actually result in false positives, impeding the other namenodes from detecting the partition.
 In order to only query live namenodes we can use the same leader election component that we leverage in other parts of the system, running the algorithm on the local instance of NDB and only allowing local nodes to participate.
 Instead of creating one extra table, we attach the status of the connection to the primary as a new column in the \emph{local} leader election instance.
-With such a failure detector in place, detecting a split brain only requires checking the status of the connection to the primary on all other nodes, as shown in algorithm \ref{algo:detection-secondary}.
+With such a failure detector in place, detecting a split brain only requires checking the status of the connection to the primary on all other nodes, as shown in Algorithm \ref{algo:detection-secondary}.
 
 \begin{algorithm}[!ht]
 	\begin{algorithmic}[1]

@@ -1,4 +1,15 @@
-Summary here
-
+In this work we present a solution that allows HopsFS to transparently present multiple geographical areas as one cluster to clients.
+By leveraging the asynchronous replication built into MySQL cluster we perform metadata replication across geographical areas while still maintaining the same consistency guarantees as Apache HDFS and HopsFS when deployed in a single area.
+We also describe solutions for both network partitions and cluster crashes which allows clients to continue performing a safe subset of operations and allows the system to recover gracefully from such events.
+Furthermore, we detail the implementation work done to allow the inclusion of such changes into the HopsFS codebase.
+To the best of our knowlege, once complete, this would be the first HDFS implementation with such characteristics allowing it to reach the same levels of availability and data retention as cloud native storage systems such as Amazon S3, while still maintaining the consistent behaviour of a hierarchical file-system.
 \subsection{Future work}
-More specific investigation of block placement and erasure coding techniques to increase data reliability \cite{DBLP:conf/usenix/CidonRSKOR13, DBLP:conf/usenix/HuangSXOCG0Y12}
+While the description of the basic solution presented in this thesis is complete, there is still much to be done both to implement the basic solution in the code and to further optimize it.
+Specifically, the implementation work done so far only covers the adaptation of the metadata access layer (DAL) to allow it to connect to multiple database clusters at the same time as well as being able to detect disconnections and perform re-connections.
+Futhermore, while the conflict detection functions used to merge the system after a network partition are provided by MySQL Cluster, no testing was perfomed regarding their impact on the performance of the database.
+There are also several areas where the proposed solution could be improved.
+First of, it would be interesting to study a way to execute some operations on the local cluster instead of routing them all to the primary cluster.
+By doing that we would further reduce the strain on the primary cluster and increase scalability of the overall system.
+Similarly, it would be beneficial to allow a greater set of operations when the cluster is experiencing a network partition to increase compatibility with applications that expect Apache HDFS and are therefore unaware of multiple zones.
+Finally, there are several key improvements to consider in the context of block storage and replication.
+Erasure coding techniques \cite{DBLP:conf/usenix/HuangSXOCG0Y12,grohsschmiedt2014making} can reduce the block replication overhead allowing better utilization of space in the cluster, while improvements in block placement policies (as shown in \cite{DBLP:conf/usenix/CidonRSKOR13}) can dramatically increase data retention in the presence of failures.

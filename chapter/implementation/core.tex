@@ -1,4 +1,4 @@
-The goal of this work is to plan for an extension to HopsFS that leverages the geographical replication capabilities built into MySQL Cluster and illustrated in section \ref{sec:mysql-cluster} to build a geographically distributed file system that transparently appears to clients as a single name-space and maintains most of the consistency properties that clients expect.
+The goal of this work is to plan for an extension to HopsFS that leverages the geographical replication capabilities built into MySQL Cluster and illustrated in Section \ref{sec:mysql-cluster} to build a geographically distributed file system that transparently appears to clients as a single name-space and maintains most of the consistency properties that clients expect.
 Furthermore, clients running in or near the closest geographical location, the \emph{local} cluster, are expected to continue to function, possibly at reduced capacity, in case other, \emph{remote}, geographical locations fail or become unavailable for any reason.
 This also implies that operations from clients in or near the local clusters should be processed in the local data center as much as possible to avoid saturation of the egress links that connect the different locations together.
 
@@ -12,15 +12,15 @@ Cloud provider zones are, however, insignificant to our goal as a system designe
 
 As shown in Section \ref{sec:hdfs} and \ref{sec:hopsfs}, the HopsFS architecture involves three main components:
 \begin{enumerate}
-    \item a set of namenodes which process client and datanode RPC requests as well as performing background periodic maintenance tasks such as re-replication of blocks which keep the cluster  in the correct state
-    \item a set of datanodes which store block data and checksums and report their status to the namenodes using heartbeats
-    \item a metadata storage cluster which stores and handles modification of the cluster metadata by the namenodes
+    \item a set of namenodes which process client and datanode RPC requests as well as performing background periodic maintenance tasks such as re-replication of blocks which keep the cluster  in the correct state,
+    \item a set of datanodes which store block data and checksums and report their status to the namenodes using heartbeats, and
+    \item a metadata storage cluster which stores and handles modification of the cluster metadata by the namenodes.
 \end{enumerate}
 In order to allow clients to perform operations on the local cluster, which is one of the key objectives of the project, each of the clusters needs
 \begin{inparaenum}
-    \item a complete copy of all metadata
-    \item a complete copy of all filesystem data
-    \item local running instances of all the components required for the system to function on its own
+    \item a complete copy of all metadata,
+    \item a complete copy of all filesystem data, and
+    \item running instances of all the components required for the system to function on its own.
 \end{inparaenum}.
 If this were not true, operations on the local cluster would require very expensive connections to a remote cluster, operations that would fail and render the local cluster inoperable in the event of remote cluster failure.
 Replicating the infrastructural components is by far the simplest task, as it only involves the deployment of a complete cluster in the other geographical location plus some configuration to connect the clusters.

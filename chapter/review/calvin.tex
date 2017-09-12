@@ -29,9 +29,9 @@ As all the other components, the storage layer is an interface and any implement
 \begin{inparaenum}[i)]
     \item provides read and write primitives that execute on the node,
     \item provides a placement manager that, for every request, provides a storage node where the operation can be executed and
-    \item \label{point:custom-trans} allows the definition of custom transactions that include both read/write primitives and other deterministic application-specific logic.
+    \item allows the definition of custom transactions that include both read/write primitives and other deterministic application-specific logic.
 \end{inparaenum}
-Point \ref{point:custom-trans} is particularly powerful in the context of a distributed file-system as it provides the opportunity to define more high-level operations such as \texttt{CreateFile(path)} that will be serialized in the log along with all their arguments (\texttt{path} in this case).
+The ability to define custom transactions is particularly powerful in the context of a distributed file-system as it provides the opportunity to define more high-level operations such as \texttt{CreateFile(path)} that will be serialized in the log along with all their arguments (\texttt{path} in this case).
 The implementation used in CalvinFS provides a in-memory key-value store which supports versioning of keys and uses consistent hashing of keys to determine placement of values.
 
 The \textbf{scheduler} drives local query execution and one process is therefore executed alongside every storage layer node.

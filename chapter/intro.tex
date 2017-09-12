@@ -47,19 +47,19 @@ The goal of this work is to enable a single HopsFS filesystem to be geographical
 MySQL cluster fully supports geographical replication, but the resulting system propagates changes between regions asynchronously.
 The main objectives for this projects are therefore threefold:
 \begin{itemize}
-    \item investigate the properties of asynchronous replication in the metadata storage layer, MySQL Cluster
-    \item define the changes in behavior to the filesystem as a result of this work, if any
-    \item begin the implementation of the required changes in HopsFS
+    \item investigate the properties of asynchronous replication in the metadata storage layer (MySQL Cluster),
+    \item define the changes in behavior to the filesystem as a result of this work, if any, and
+    \item implementation of the required changes in HopsFS.
 \end{itemize}
 The expected results is for the two regions to appear to clients as a single filesystem, while allowing clients in one data-center to keep working if the other data-center is unavailable for any reason.
 
 \subsection{Outline}
 
-Section \ref{sec:background} introduces the main areas of work for this thesis, namely:
+Section \ref{sec:background} introduces the main topics whose understanding is crucial to the work:
 \begin{inparaenum}[1)]
-\item the Hadoop Filesystem (HDFS) as the general architecture of HopsFS, especially with regard to block management is still based on it
-\item the main modifications applied to HopsFS to increase scalability and reliability of the system
-\item MySQL Cluster as the metadata storage layer for HopsFS
+\item the Hadoop Filesystem (HDFS), as the system upon which HopsFS is built,
+\item the main alterations to HDFS to increase scalability and reliability of the system (HopsFS), and
+\item MySQL Cluster as the metadata storage layer for HopsFS.
 \end{inparaenum}
 
 Section \ref{sec:problem-definition} formally defines the problem that a multi-datacenter capable filesystem aims to solve and the desirable characteristics that we would like the final system to have.

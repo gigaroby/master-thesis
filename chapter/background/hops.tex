@@ -1,12 +1,12 @@
 \subsection{HopsFS}
 \label{sec:hopsfs}
-HopsFS \cite{DBLP:conf/fast/NiaziIHDGR17} is a fork of Apache HDFS created with the explicit goal of solving the biggest scalability and availability limits that are intrinsic to the single-namenode nature of the system: 
+HopsFS \cite{DBLP:conf/fast/NiaziIHDGR17} is a fork of Apache HDFS created with the explicit goal of solving the biggest scalability and availability limits that are inherent to the single-namenode nature of the system: 
 \begin{inparaenum}[i)]
-    \item amount of metadata limited by the main memory of the machine running the namenode process
-    \item number and speed of processors in the machine
-    \item amount and latency of bandwidth between the namenode and its clients
-    \item coarse grained locking that requires a global lock to alter any piece of metadata
-    \item long garbage collection pauses can block the entire process for long periods of time as heap grows
+    \item the amount of metadata limited by the main memory of the machine running the namenode process,
+    \item the number and speed of processors in the machine,
+    \item the amount and latency of bandwidth between the namenode and its clients,
+    \item the coarse grained locking that requires a global lock to alter any piece of metadata, and
+    \item the long garbage collection pauses can block the entire process for long periods of time as heap grows.
 \end{inparaenum}
 To do so, HopsFS decouples the responsibility of managing metadata from the namenode and places it in a separate distributed system called MySQL Cluster.
 MySQL Cluster is a distributed, consistent (CP), in-memory relational database management system (RDMS) that can be operated and scaled independently from the hadoop cluster(s) it stores metadata for.
@@ -21,13 +21,13 @@ Unlike memory-managed applications, MySQL Cluster also does not suffer from garb
 \subsubsection{Multi-namenode architecture}
 The namenode, which is now a client of the metadata storage system, performs metadata queries, both in terms of reading and modifying, using an interface called the (meta)Data Access Layer or DAL, which internally connects to the distributed storage system in an efficient fashion.
 This allows multiple HopsFS namenodes to run in parallel, each serving a subset of the client requests to the overall system.
-The architecture of the resulting system is shown in figure \ref{fig:hopsfs-architecture}.
+The architecture of the resulting system is shown in Figure \ref{fig:hopsfs-architecture}.
 
 While most client operations can be directed to any one namenode, the block reports from datanodes and the daemon threads must be handled carefully.
 In a Apache HDFS namenode, background daemon threads are responsible for a variety of functions including block re-balancing and lease recovery.
 If allowed to run on every node in the cluster, these daemon threads would interfere with each other's work, causing unpredictable results.
 To maintain the behaviour of Apache HDFS, HopsFS must guarantee that only one node in the cluster executes daemon threads at any given time.
-To this end, all namenodes active in a cluster participate in a leader election algorithm, explained in detail in section \ref{sec:leader-election}, that will elect a single namenode to be leader at any given time.
+To this end, all namenodes active in a cluster participate in a leader election algorithm, explained in detail in Section \ref{sec:leader-election}, that will elect a single namenode to be leader at any given time.
 Additionally, the leader election procedure serves as \emph{failure detector} within the set of namenodes, allowing clients to retrieve a list of live nodes.
 Datanodes fetch an updated list of active namenodes before every heartbeat messages, allowing them to keep an updated view of participants in the cluster and the current leader node's identity.
 As metadata about the state of datanodes, the action they should execute, and the blocks they contain is stored in MySQL Cluster, any namenode can process heartbeats or block reports from any datanode.
@@ -88,7 +88,7 @@ At the end of the perform phase, the objects are divided into four categories:
     \item unmodified,
     \item created,
     \item deleted,
-    \item modified
+    \item modified,
 \end{inparaenum}
 and the required operations are executed in batch on the database.
 The perform phase is, therefore, still executed in the context of a database transaction, with the possibility of rollback in case of errors, but all operations on the database are executed at the end.
