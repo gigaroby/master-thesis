@@ -32,7 +32,7 @@ Image \ref{fig:ndb-node-groups} shows an example scenario for a cluster with $N_
 \includegraphics[width=0.95\textwidth]{images/placeholder.png}
 \end{figure}
 
-In order to provide clients with synchronous transaction, which maintain data consistency, NDB employes a two phase commit protocol (2PC) when committing transactions.
+In order to provide clients with synchronous transaction, which maintain data consistency, NDB employes a two phase commit protocol (2PC) \cite{bernstein1987rrency} when committing transactions.
 A 2PC protocol run is divided into two phases: \begin{inparaenum}
     \item a \emph{prepare} phase, where nodes execute the operations specified in the transaction and prepare for a commit
     \item a \emph{commit} phase, where nodes commit the operation

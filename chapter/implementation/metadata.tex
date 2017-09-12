@@ -15,10 +15,10 @@ To avoid this issue and maintain the appropriate level of consistency for the fi
 Operations require such strong consistency properties to maintain the single writer semantics of HDFS, which means that all operations that modify file and block metadata will be routed to the primary cluster.
 While routing write operations to the secondary cluster may appear to be problematic in terms of traffic flowing between zones, the analysis of the workload provided by Spotify and described in the HopsFS paper \cite{DBLP:conf/dais/NiaziIBD15} as well as similar traces provided by Yahoo \cite{abad2014big} and LinkedIn \cite{DBLP:conf/sc/RenZPG14}, show that such operations only make up for less than 5\% of the total volume, allowing this approach to be considered.
 The only situation where not all operations are going to be committed on the primary, and therefore in a consistent and durable fashion, is when the two clusters are unable to communicate with each other; a condition known as split brain that can be caused by one of two events:
-\begin{inparaenum}[1)]
-    \item one of the two clusters fails
+\begin{itemize}
+    \item one of the two clusters fails or
     \item both clusters are online, but cannot communicate to each other, a situation known as a network partition.
-\end{inparaenum}
+\end{itemize}
 A network partition can manifest in different ways but in the context of this paper we define it as a complete inability of nodes in the first cluster to connect to any node in the second cluster and vice-versa.
 While the definition is very specific, and network partitions can typically manifest in a variety of more subtle ways, in this case the specificity is also supported by our model of geo-replicating databases which implies that all traffic between zones is carried by a virtual network running on the external connection.
 In case of failure on this particular (virtual) link, all connectivity between data centers would effectively be cut, and, a shown in Microsoft's study on network failures \cite{DBLP:conf/sigcomm/GillJN11}, links between data-centers take the longest to repair.

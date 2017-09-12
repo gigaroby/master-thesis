@@ -46,7 +46,7 @@ The leader will assign the block report to a namenode that has the capacity to p
 As previously mentioned, HopsFS maintains a list of active namenodes in the system and elects one leader which executes functions critical to the proper functioning of the overall system.
 Apache HDFS, when configured in High Availability mode (HA) also require such a system and leverages Zookeeper to perform these functions.
 HopsFS eliminates the reliance on Zookeeper by leveraging the metadata storage system as shared memory and implementing reliable failure detection and leader election \cite{DBLP:conf/dais/NiaziIBD15} using MySQL Cluster distributed engine (NDB).
-\cite{DBLP:journals/jacm/ChandraHT96}
+The failure detector implemented therefore complies with the requirements for the weakest failure detector for solving consensus  \cite{DBLP:journals/jacm/ChandraHT96}.
 
 \subsubsection{The (meta)Data Access Layer}
 \label{sec:dal}
