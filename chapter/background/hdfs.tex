@@ -137,7 +137,7 @@ The main advantage of delivering commands as responses to heartbeats instead of 
 
 \subsection{Scalability limitations of HDFS}
 \label{sec:scalability-limitations}
-A study conducted regarding the scalability limitations of HDFS \cite{shvachko2010hdfs} concluded that HDFS can manage [TODO] \footnote{how much data per gigabyte of metadata}.
+A study conducted regarding the scalability limitations of HDFS \cite{shvachko2010hdfs} concluded that HDFS can manage an estimate 1 petabyte of data per gigabyte of metadata.
 While Apache HDFS can be scaled to manage multi-petabyte clusters, its single-active namenode design effectively limits both the amount of metadata and the number of queries per second (QPS) a node can process, to the largest machine it can be installed on.
 The amount of metadata is limited because they are stored as Java objects in the Java Virtual Machine (JVM) heap space, which is itself limited by the amount of main memory available in the machine.
 Furthermore, Java objects have a 8 to 12 byte header which is used by the virtual machine, increasing the memory requirements even further.
