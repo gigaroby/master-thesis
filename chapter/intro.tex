@@ -35,7 +35,7 @@ The trade-offs are that this approach introduces further components that need to
 
 To solve the mismatch of HDFS with cloud environments, the Hops project provides a scalable, cloud-ready, protocol-compatible distribution of HDFS called HopsFS \cite{DBLP:conf/dais/NiaziIBD15}.
 HopsFS solves the biggest architectural problem that limits both HDFS's scalability and its fault-tolerance, the storage of filesystem metadata in the namenode process main memory.
-Unlike HDFS, HopsFS stores the metadata in a distributed, consistent NewSQL database called Mysql Cluster, which can scale to hundreds of machines and store hundreds of terabytes of metadata.
+Unlike HDFS, HopsFS stores the metadata in a distributed, consistent NewSQL database called MySQL Cluster, which can scale to hundreds of machines and store hundreds of terabytes of metadata.
 By moving the metadata in an external component, the namenode effectively becomes a (mostly) stateless process which can be easily replicated on multiple machines, all connecting to the same metadata storage cluster.
 Aside from a clear improvement in availability, all of the HopsFS datanodes can answer RPC requests traditionally directed towards the HDFS namenode, enabling horizontal scalability at the namenode layer.
 As demonstrated in \cite{DBLP:conf/dais/NiaziIBD15} on a workload trace provided by Spotify, the improvements brought by the increased scalability allow HopsFS to perform 16 times the number of metadata operations in the same amount of time.
