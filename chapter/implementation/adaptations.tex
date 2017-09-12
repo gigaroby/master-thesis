@@ -108,6 +108,28 @@ protected PartitionEvent tick() {
 }
 \end{lstlisting}
 
+\begin{lstlisting}[caption={Reconnector interface}, label={lst:reconnector}]
+/**
+ * A reconnector can report whether the connection is up and attempt reconnections.
+ * Note that, if possible, checking for connectivity should be cheap
+ * while reconnection is expected to be more expensive resource-wise.
+ */
+public interface Reconnector {
+  /**
+   * Checks whether the connector is connected to the remote.
+   * @return whether the connection is up
+   */
+  boolean isConnected();
+
+  /**
+   * Attempts a reconnection.
+   * If this method returns successfully, the connection attempt was a success.
+   * Should be called periodically in the background to re-acquire connectivity
+   */
+  void reconnect() throws StorageException;
+}
+\end{lstlisting}
+
 While the work performed so far is necessary to allow further progress towards the implementation of the theoritical framework described in this chapter, there is still much to do.
 The distinction between network partition and cluster crash is not implemented and will require an external system like ZooKeeper to perform arbitration.
 The routing of operations to the local database and all of the changes to the client to allow it to perform fully consistent reads are not implemented.

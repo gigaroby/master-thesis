@@ -64,7 +64,7 @@ Any other operation is disallowed and an error is sent to the client attempting 
 
 \begin{figure}[h]
 \caption{System during a network partition: both clusters continue operating in a reduced capacity while they are unable to communicate.}
-\label{fig:system-cluster-crash}
+\label{fig:system-network-partition}
 \centering
 \includegraphics[width=0.95\textwidth]{images/placeholder.png}
 \end{figure}
@@ -129,7 +129,7 @@ With such a failure detector in place, detecting a split brain only requires che
 
 While namenodes are now capable of detecting a split brain independently, they don't have the capability of distinguishing between a network partition or a cluster crash.
 This capability can be provided by providing a system hosted in a third zone, independent from the first two, which will act as a tie-breaker and allow the systems to consistently know whether both zones are still live (network partition) or if the remaining cluster is the only one currently running.
-Such a system could be implemented in a variety of ways, for example by configuring a zookeeper cluster \cite{zookeeper} with three nodes: one in the primary zone, one in the secondary zone and the tie-breaker in the third zone.
+Such a system could be implemented in a variety of ways, for example by configuring a Zookeeper \cite{DBLP:conf/usenix/HuntKJR10} cluster with three nodes: one in the primary zone, one in the secondary zone and the tie-breaker in the third zone.
 In case of split brain, both clusters would query the tie-breaking system which would yield one of the following outcomes:
 \begin{enumerate}
     \item the cluster is unable to get a quorum of nodes; it is isolated both from the secondary and tie-breaker. In this case the cluster goes into read-only mode as it is the only safe course of action
