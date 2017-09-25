@@ -24,7 +24,7 @@ In HDFS, RPC is used both for communication between clients and the system and f
 \caption{HDFS components}
 \label{fig:hdfs-block-diagram}
 \centering
-\includegraphics[width=0.95\textwidth]{images/hdfs-block-diagram.png}
+\includegraphics[width=1.0\textwidth]{images/hdfs-block-diagram.png}
 \end{figure}
 
 The HDFS system contains three main components, as shown in Figure \ref{fig:hdfs-block-diagram}:
@@ -33,8 +33,6 @@ The HDFS system contains three main components, as shown in Figure \ref{fig:hdfs
 \item a set of \emph{datanodes}, and
 \item \emph{clients} interacting with the system.
 \end{enumerate}
-
-\clearpage
 
 \paragraph{The namenode} is the central entity responsible for storing and applying modification to the system's metadata.
 Metadata stored in the namenode includes information on the state and health of the cluster, information on how files are stored and replicated and finally information on the state of operations being executed.
@@ -146,3 +144,5 @@ Metadata objects are, in principal, only altered in two ways: from periodic proc
 Given that any number of these alterations can happen in parallel, the namenode protects the metadata with a global lock, the \textit{FSNamesystemLock}, which can be acquired by an arbitrary number of threads in \emph{read} mode, but requires exclusivity when acquired in \emph{write} mode.
 All operations that require modification of the metadata are therefore executed serially, further lowering the amount of queries per second that the namenode can process.
 Storing metadata in the JVM heap is also problematic due to increasingly long garbage collection pauses that freeze the entire process as the heap grows in size.
+
+\clearpage
