@@ -40,7 +40,7 @@ In summary, the system in nominal condition behaves as it would in a single clus
 \caption{System in nominal conditions: reads go to the local database, while writes are directed to the primary.}
 \label{fig:system-nominal-conditions}
 \centering
-\includegraphics[width=0.95\textwidth]{images/placeholder.png}
+\includegraphics[width=0.95\textwidth]{images/system-nominal.png}
 \end{figure}
 
 During a \textbf{cluster crash}, a split brain scenario caused by the failure of either cluster, the remaining cluster can operate normally and execute all possible operations (shown in Figure \ref{fig:system-cluster-crash}).
@@ -54,7 +54,7 @@ To summarize, in case of cluster crash the surviving cluster operates normally e
 \caption{System during a cluster crash: one of the two clusters behaves normally while the other is unavailable.}
 \label{fig:system-cluster-crash}
 \centering
-\includegraphics[width=0.95\textwidth]{images/placeholder.png}
+\includegraphics[width=0.95\textwidth]{images/system-cluster-crash.png}
 \end{figure}
 
 During a \textbf{network partition}, a situation where the two clusters function correctly but cannot communicate with each other as shown in Figure \ref{fig:system-network-partition}, concurrent modifications to metadata must be only allowed in such a way that prevents uncorrectable conflicts from happening.
@@ -66,7 +66,7 @@ Any other operation is disallowed and an error is sent to the client attempting 
 \caption{System during a network partition: both clusters continue operating in a reduced capacity while they are unable to communicate.}
 \label{fig:system-network-partition}
 \centering
-\includegraphics[width=0.95\textwidth]{images/placeholder.png}
+\includegraphics[width=0.95\textwidth]{images/system-network-partition.png}
 \end{figure}
 
 \subsubsection{Split brain detection}

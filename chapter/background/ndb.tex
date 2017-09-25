@@ -29,7 +29,7 @@ Image \ref{fig:ndb-node-groups} shows an example scenario for a cluster with $N_
 \caption{Node groups}
 \label{fig:ndb-node-groups}
 \centering
-\includegraphics[width=0.95\textwidth]{images/placeholder.png}
+\includegraphics[width=0.95\textwidth]{images/ndb-node-groups.png}
 \end{figure}
 
 In order to provide clients with synchronous transaction, which maintain data consistency, NDB employes a two phase commit protocol (2PC) \cite{bernstein1987rrency} when committing transactions.
@@ -128,7 +128,7 @@ While this system is relatively simple to implement and operate it is unsuitable
 \caption{Master-follower topology}
 \label{fig:master-follower}
 \centering
-\includegraphics[width=0.95\textwidth]{images/placeholder.png}
+\includegraphics[width=0.95\textwidth]{images/master-slave.png}
 \end{figure}
 
 
@@ -147,7 +147,7 @@ The routing is necessary so that, when two applications try to write conflicting
 \caption{Balanced master-follower topology}
 \label{fig:balanced-master-follower}
 \centering
-\includegraphics[width=0.95\textwidth]{images/placeholder.png}
+\includegraphics[width=0.95\textwidth]{images/balanced-master-follower.png}
 \end{figure}
 
 \paragraph{Optimistic Active Active}
@@ -162,7 +162,7 @@ Clients of such a system must accept that they may read data which is stale or n
 \caption{A topology with two MySQL Cluster clusters replicating with active to active configuration}
 \label{fig:optimistic-active-active}
 \centering
-\includegraphics[width=0.95\textwidth]{images/placeholder.png}
+\includegraphics[width=0.95\textwidth]{images/optimistic-active-active.png}
 \end{figure}
 
 \paragraph{Hybrid Optimistic Active Active}
@@ -174,7 +174,7 @@ This system still enables the benefits of the optimistic active active scheme, b
 \caption{Hybrid optimistic active to active topology}
 \label{fig:hybrid-optimistic-active-active}
 \centering
-\includegraphics[width=0.95\textwidth]{images/placeholder.png}
+\includegraphics[width=0.95\textwidth]{images/hybrid-optimistic-active-active.png}
 \end{figure}
 
 
@@ -196,7 +196,7 @@ The resulting setup is a circular replication scheme, which is necessary for the
 \caption{A topology with two MySQL Cluster clusters replicating with active to active configuration}
 \label{fig:two-active-active-clusters}
 \centering
-\includegraphics[width=0.95\textwidth]{images/placeholder.png}
+\includegraphics[width=0.95\textwidth]{images/hops-active-active.png}
 \end{figure}
 
 
