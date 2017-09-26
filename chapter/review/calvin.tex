@@ -9,8 +9,8 @@ Much like previously discussed distributed file-systems, the system is designed 
     \item a \emph{block store} which stores physical data on disk in blocks and provides primitives to read and write such blocks.
 \end{itemize}
 
-\paragraph{Metadata store} The \emph{metadata store} is CalvinFS, extended with a number of filesystem-specific operations.
-CalvinFS is itself divided into three components: \begin{inparaenum}[i)]
+\paragraph{Metadata store} The \emph{metadata store} is CalvinDB, extended with a number of filesystem-specific operations.
+CalvinDB is itself divided into three components: \begin{inparaenum}[i)]
     \item a \emph{log} which maintains an ordered list of transactions with parameters,
     \item a \emph{storage} layer which stores database data and provides local transaction semantics, and
     \item a \emph{scheduling} layer which performs local execution of transactions.

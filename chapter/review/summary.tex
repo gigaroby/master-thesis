@@ -1,0 +1,13 @@
+\subsection{Summary}
+In this section we analyze three different distributed file-systems with a focus on how they handle metadata management.
+
+The Google File System (GFS) paper \cite{DBLP:conf/sosp/GhemawatGL03} directly influenced the design and implementation of HDFS and the similarities between the two are therefore extensive.
+Like HDFS, GFS only uses a single master node and maintains the entire file-system metadata in main memory.
+For fault-tolerance all metadata operations are recorded in a log, which is propagated to other machines that build a in-memory state from it.
+Such machines can either be used as backups in case of master failure and as read-only replicas that can serve any read operation from clients.
+Both master backups and read-only replicas aim to increase fault-tolerance of the system but do not handle the scaling use case.
+In order to scale GFS, Google eventually adopted a solution virtually identical to HDFS federation by allowing multiple masters to control a shared pool of chunkservers.
+The limitations of GFS eventually prompted the design of other systems with better scalability and performance such as BigTable and later Colossus \cite{DBLP:journals/cacm/McKusickQ10}.
+BigTable \cite{DBLP:conf/osdi/ChangDGHWBCFG06} is an extremely scalable distributed storage systems for structured data and it is built on top of GFS.
+Colossus \cite{DBLP:journals/cacm/McKusickQ10}, on the other hand, is the successor to GFS and it employes a distributed master design with metadata stored on BigTable and allows for more granular file operations by adopting a 1 megabyte size for its chunks.
+While this significantly increases the amount of metadata for the master to handle it is better suited for real-time applications for which GFS was not originally designed.
