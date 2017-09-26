@@ -1,0 +1,125 @@
+\section{Code listings}
+
+\begin{lstlisting}[label={lst:trh}, caption={Transactional request handler for the rename operation}]
+OperationType opType
+if(isUsingSubTreeLocks) {
+    opType = HDFSOperationType.SUBTREE_RENAME;
+} else {
+    opType = HDFSOperationType.RENAME;
+}
+new HopsTransactionalRequestHandler(opType, src) {
+    @Override
+    public void acquireLock(TransactionLocks locks)
+    throws IOException {
+        LockFactory lf = LockFactory.getInstance();
+        locks.add(lf.getRenameINodeLock(
+            nameNode, INodeLockType.WRITE_ON_TARGET_AND_PARENT,
+            INodeResolveType.PATH, true, src, dst))
+        .add(lf.getBlockLock())
+        .add(lf.getBlockRelated(
+            BLK.RE, BLK.CR, BLK.UC,
+            BLK.UR, BLK.IV, BLK.PE, BLK.ER));
+        if (dir.isQuotaEnabled()) {
+            locks.add(lf.getQuotaUpdateLock(
+                true, src, dst));
+        }
+        if (!isUsingSubTreeLocks) {
+            locks.add(lf.getLeaseLock(
+                LockType.WRITE))
+            .add(lf.getLeasePathLock(
+                LockType.READ_COMMITTED));
+        } else {
+            locks.add(lf.getLeaseLock(
+                LockType.WRITE))
+            .add(lf.getLeasePathLock(
+                LockType.WRITE, src));
+        }
+        if (erasureCodingEnabled) {
+            locks.add(lf.getEncodingStatusLock(
+                LockType.WRITE, dst));
+        }
+    }
+
+    @Override
+    public Object performTask(StorageConnector connector)
+    throws IOException {
+        if (NameNode.stateChangeLog.isDebugEnabled()) {
+            NameNode.stateChangeLog.debug(
+                "DIR* NameSystem.renameTo: with options - " + src + " to " + dst);
+        }
+
+        if (isInSafeMode()) {
+            throw new SafeModeException("Cannot rename " + src, safeMode);
+        }
+        if (!DFSUtil.isValidName(dst)) {
+            throw new InvalidPathException("Invalid name: " + dst);
+        }
+        for (MetadataLogEntry logEntry: logEntries) {
+            EntityManager.add(logEntry);
+        }
+
+        for (Options.Rename op: options) {
+            if (op == Rename.KEEP_ENCODING_STATUS) {
+                INode[] srcNodes = dir.getRootDir()
+                    .getExistingPathINodes(src, false);
+                INode[] dstNodes = dir.getRootDir()
+                    .getExistingPathINodes(dst, false);
+                INode srcNode = 
+                    srcNodes[srcNodes.length - 1];
+                INode dstNode = 
+                    dstNodes[dstNodes.length - 1];
+                EncodingStatus status = EntityManager.find(
+                    EncodingStatus.Finder.ByInodeId, dstNode.getId());
+                EncodingStatus newStatus = new EncodingStatus(status);
+                newStatus.setInodeId(srcNode.getId());
+                EntityManager.add(newStatus);
+                EntityManager.remove(status);
+                break;
+            }
+        }
+
+        removeSubTreeLocksForRenameInternal(
+            src, isUsingSubTreeLocks, subTreeLockDst);
+
+        dir.renameTo(
+            connector, src, dst, srcNsCount,
+            srcDsCount, dstNsCount, dstDsCount, options);
+        return null;
+    }
+}.handle(this);
+\end{lstlisting}
+
+\begin{lstlisting}[label={lst:lrh}, caption={Lightweight request handler}]
+new LightWeightRequestHandler(UsersOperationsType.GET_USER_GROUPS) {
+    @Override
+    public Object performTask(StorageConnector connector)
+    throws IOException {
+        boolean transactionActive = connector.isTransactionActive();
+
+        if (!transactionActive) {
+            connector.beginTransaction();
+        }
+
+        Integer userId = cache.getUserId(userName);
+        
+        User user;
+        if(userId == null) {
+            user = userDataAccess.getUser(userName);
+        } else {
+            user = userDataAccess.getUser(userId);
+        }
+
+        if (user == null) {
+            return null;
+        }
+
+        List<Group> groups = userGroupDataAccess
+            .getGroupsForUser(user.getId());
+
+        if (!transactionActive) {
+            connector.commit();
+        }
+
+        return new Pair<User, List<Group>>(user, groups);
+}.handle(this);
+\end{lstlisting}

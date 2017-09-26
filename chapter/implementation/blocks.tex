@@ -33,6 +33,6 @@ By using a replica value of four two replicas are assigned to every zone, ensuri
 The final problem regarding the placement policy is the handling of split brain scenarios.
 Without further adaptations, a split brain scenario would lead the cluster to believe that half of all the replicas in the cluster are missing, forcing the leader namenode to re-replicate all the blocks an additional two times.
 Aside from creating a very large amount of network load between datanodes the result of such re-replication would be discarded as soon as the temporary split brain scenario is resolved.
-In order to avoid spurious re-replication, we modify the amounts of replicas to two during split brain scenarios.
+In order to avoid spurious re-replication, we modify the amount of replicas to two during split brain scenarios.
 By setting the value to two, we avoid any re-replication of existing blocks and we only create two replicas for new blocks.
 When the two clusters are merged, the replica value is once again increased to four, and the normal background re-replication tasks will create the necessary replicas in the other zone for blocks created during the split brain.

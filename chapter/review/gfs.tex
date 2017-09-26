@@ -3,6 +3,13 @@ The Google File System (GFS) \cite{DBLP:conf/sosp/GhemawatGL03} is the distribut
 The design of GFS and MapReduce \cite{DBLP:journals/cacm/DeanG08} directly drove the implementation of the Hadoop platform and, as such, there are many similarities between GFS and HDFS.
 
 \subsubsection{Architecture}
+\begin{figure}[h]
+\caption{GFS architecture diagram}
+\label{fig:hdfs-block-diagram}
+\centering
+\includegraphics[width=1.0\textwidth]{images/gfs-block-diagram.png}
+\end{figure}
+
 GFS is designed as a distributed non-POSIX-compliant file-system for distributed applications and it is built by clustering a set of general-purpose machines as shown in Figure \ref{fig:gfs-architecture}.
 It is a distributed system with three distinct roles: 
 \begin{itemize}

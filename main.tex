@@ -90,10 +90,10 @@
     stringstyle=\color{red}\ttfamily,
     commentstyle=\color{green}\ttfamily,
     morecomment=[l][\color{magenta}]{\#},
-    numbers=left,
+    % numbers=left,
     showspaces=false,
     showstringspaces=false,
-    frame=L,
+    frame=leftline,
 }
 
 %% All that is printed on paper starts here
@@ -117,7 +117,7 @@
 %% professorship and professorship code. 
 %%
 \department{Department of Computer Science}
-%% \professorship{Circuit theory}
+\professorship{Computer Science}
 %%
 
 \univdegree{MSc}
@@ -138,7 +138,7 @@
 %% For B.Sc. thesis use the date when you present your thesis. 
 %% 
 %% Kandidaatintyön päivämäärä on sen esityspäivämäärä! 
-\date{14.9.2017}
+\date{22.06.2017}
 
 %% B.Sc. or M.Sc. thesis supervisor 
 %% Note the "\" after the comma. This forces the following space to be 
@@ -148,7 +148,7 @@
 %% by a regular space.
 %%
 % \supervisor{Prof.\ Jim Dowling} %{Prof.\ Pirjo Professori}
-\supervisor{Prof.\ Keijo Heljanko}
+\supervisor{Assoc.\ Prof.\ Keijo Heljanko}
 %% B.Sc. or M.Sc. thesis advisors(s). You can give upto two advisors in
 %% this template. Check with your supervisor how many official advisors
 %% you can have.
@@ -181,7 +181,7 @@
 %% niin kuin se on yllä määritelty.
 %% Avainsanat
 %%
-\keywords{}
+\keywords{HDFS, distributed file-systems, geographic replication}
 %% Abstract text
 \begin{abstractpage}[english]
 
@@ -207,7 +207,7 @@
 % good and poor guidance.\\
 
 \vspace{5cm}
-Trento, 12.9.2017
+Kista, 22.06.2017
 
 \vspace{5mm}
 {\hfill Roberto Bampi \hspace{1cm}}
@@ -283,6 +283,11 @@ Trento, 12.9.2017
 
 \bibliographystyle{abbrv}
 \bibliography{biblio}
+
+\clearpage
+
+\thesisappendix
+\input{appendix/main}
 
 %% Appendices
 %% Liitteet

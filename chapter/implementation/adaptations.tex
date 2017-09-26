@@ -54,10 +54,13 @@ In future iterations of the project, the multizone connector will also modify it
  */
 public interface MultiZoneStorageConnector {
   /**
-   * This method returns a StorageConnector for the appropriate cluster.
-   * @param cluster whether to connect to the local or primary cluster
+   * This method returns a StorageConnector
+   * for the appropriate cluster.
+   * @param cluster whether to connect to
+   * the local or primary cluster
    * @return the appropriate storage connector
-   * @throws StorageException if a connector cannot be returned
+   * @throws StorageException if a connector
+   * cannot be returned
    */
   StorageConnector connectorFor(TransactionCluster cluster)
     throws StorageException;
@@ -69,9 +72,11 @@ The information on whether the connection is functioning or not is used on the s
 When a split brain is detected by a partition monitor, a configurable action is executed and this action will, in the future, perform the state changes required by the system to handle the partition.
 \begin{lstlisting}[caption={Implementation of the partition detection algorithm in the secondary cluster}, label={lst:detection-secondary}]
 /**
- * This methods performs partition detection for the secondary cluster.
- * A partition is detected in the secondary cluster if 
- * all the live namenodes lost the connection to the primary cluster.
+ * This methods performs partition detection
+ * for the secondary cluster.
+ * A partition is detected in the secondary cluster if all
+ * the live namenodes lost the connection
+ * to the primary cluster.
  * Additionally, this class updates the state 
  * of the node's connection in the leader election procedure.
  */
@@ -79,10 +84,11 @@ When a split brain is detected by a partition monitor, a configurable action is 
 protected PartitionEvent tick() {
     boolean connected = connector.isConnectedToPrimary();
 
-    // update the state of the connection in the leader election procedure
+    // update the state of the connection
+    // in the leader election procedure
     leaderElection.setConnectedToPrimary(connected);
-    // if connected to primary there is at least one node connected
-    // (therefore no partition).
+    // if connected to primary there is at least
+    // one node connected (therefore no partition).
     if (connected) {
         return PartitionEvent.RESOLVED;
     }
@@ -91,8 +97,8 @@ protected PartitionEvent tick() {
     // the partition is resolved.
     SortedActiveNodeList namenodes = 
         leaderElection.getActiveNamenodes();
-    // this can happen if run before the first leader election round
-    // unknown is ignored
+    // this can happen if run before the first leader 
+    // election round. unknown is ignored
     if (namenodes == null) {
         return PartitionEvent.UNKNOWN;
     }
@@ -102,17 +108,19 @@ protected PartitionEvent tick() {
         }
     }
 
-    // if all the active namenodes aren't connected to the database,
-    // detect a partition.
+    // if all the active namenodes aren't connected
+    // to the database, detect a partition.
     return PartitionEvent.DETECTED;
 }
 \end{lstlisting}
 
 \begin{lstlisting}[caption={Reconnector interface}, label={lst:reconnector}]
 /**
- * A reconnector can report whether the connection is up and attempt reconnections.
- * Note that, if possible, checking for connectivity should be cheap
- * while reconnection is expected to be more expensive resource-wise.
+ * A reconnector can report whether the 
+ * connection is up and attempt reconnections.
+ * Note that, if possible, checking
+ * for connectivity should be cheap while
+ * reconnection is expected to be more expensive.
  */
 public interface Reconnector {
   /**
@@ -123,8 +131,10 @@ public interface Reconnector {
 
   /**
    * Attempts a reconnection.
-   * If this method returns successfully, the connection attempt was a success.
-   * Should be called periodically in the background to re-acquire connectivity
+   * If this method returns successfully,
+   * the connection attempt was a success.
+   * Should be called periodically
+   * in the background to re-acquire connectivity
    */
   void reconnect() throws StorageException;
 }
