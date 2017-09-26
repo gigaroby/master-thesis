@@ -13,6 +13,13 @@ Data in the system can be accessed with a url built from three components: \emph
 While account name is used to identify the client, identification of the data objects varies according to the type of object: blobs are uniquely identified by partition~name, tuples in table storage are identified by a composite primary key (partition~name, object~name) and for queues, the partition~name identifies the queue and the object~name the specific message within that queue.
 
 \subsubsection{Architecture}
+\begin{figure}[h]
+\caption{Windows Azure Storage architecture diagram}
+\label{fig:was-architecture}
+\centering
+\includegraphics[width=1.0\textwidth]{images/.png}
+\end{figure}
+
 The architecture of the system, shown in Figure \ref{fig:was-architecture}, includes two separate systems:
 \begin{inparaenum}[i)]
     \item the location service (LS) and
