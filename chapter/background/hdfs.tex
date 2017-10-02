@@ -95,7 +95,7 @@ There are two primary reasons for this:
 \end{inparaenum}.
 To fulfill both purposes it is important to consider the placement of blocks in the context of the overall network topology where HDFS is deployed.
 In a typical deployment, HDFS data nodes will be installed in server blades which will be installed in a rack.
-Machines in a rack will be connected to the network via a TOR (top of the rack) switch, which will provide both connectivity between machines in the rack and connectivity to the other racks via a higher level switch. \footnote{insert image about network topology here} 
+Machines in a rack will be connected to the network via a TOR (top of the rack) switch, which will provide both connectivity between machines in the rack and connectivity to the other racks via a higher level switch.
 This type of deployment assumes that inter-rack connections are lower latency and have more bandwidth, while intra-rack connections are more expensive both in terms of bandwidth and latency.
 In this scenario, each rack represents a separate failure domain, as failure of the TOR switch, loss of connectivity to the higher level switch, or power failure effectively isolates all the machines in the rack from the network.
 To avoid the scenario where the loss of a single rack compromises the availability of all the replicas of a block, HDFS distributes the replica of a block across racks, provided that the cluster operator provides the namenode with information on placement of datanodes.

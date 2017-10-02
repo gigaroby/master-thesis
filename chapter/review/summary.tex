@@ -10,4 +10,20 @@ In order to scale GFS, Google eventually adopted a solution virtually identical 
 The limitations of GFS eventually prompted the design of other systems with better scalability and performance such as BigTable and later Colossus \cite{DBLP:journals/cacm/McKusickQ10}.
 BigTable \cite{DBLP:conf/osdi/ChangDGHWBCFG06} is an extremely scalable distributed storage systems for structured data and it is built on top of GFS.
 Colossus \cite{DBLP:journals/cacm/McKusickQ10}, on the other hand, is the successor to GFS and it employes a distributed master design with metadata stored on BigTable and allows for more granular file operations by adopting a 1 megabyte size for its chunks.
-While this significantly increases the amount of metadata for the master to handle it is better suited for real-time applications for which GFS was not originally designed.
+While this significantly increases the amount of metadata for the master to handle it is better suited for real-time applications for which GFS was not originally designed for.
+
+Windows Azure Storage \cite{DBLP:conf/sosp/CalderWONSMXSWSHUKEBMAAHHBDAMSMR11} introduces a high-performance append-only filesystem that is capable of supporting the three core abstractions that are offered to users by the system.
+The file-system, called Stream Layer (SL) in Windows Azure Storage, is very similar in design to both GFS and HDFS and it provides reliable storage to the abstractions built by the upper layer.
+It operates in a single zone and a single cluster called a Stamp.
+Replication in the Stream Layer is performed in a similar fashion to both GFS and HDFS, extents (chunks in GFS, blocks in HDFS) are synchronously replicated to a set number of replicas before any operation is acknowledged to the client.
+Metadata is stored in a Paxos replicated group where each machine stores and mutates the state synchronously.
+Reliability across Stamps (and therefore availability zones) is only provided by the upper layers which replicate entire objects asynchronously to another Stamp in a different zone for disaster recovery or load balancing purposes.
+In order to increase scalability past the limits of a single Stamp, the application must use and coordinate multiple independent Stamps without any support by the system.
+
+CalvinFS is the only file-system analyzed here that natively supports deployment in multiple availability zones both to increase reliability and to increase scalability.
+It does however optimize for a very different use case than typical distributed file-systems and that is an extremely large number of small files.
+Furthermore, due to the way it handles the hierarchical nature of a file-system tree, operations that need to modify large sub-trees are required to modify each child and are therefore slow and expensive.
+Finally, this is the only solution that is completely experimental and has not been validated with real-world usage.
+
+While all the papers analyzed in this section introduce some interesting concepts, very few are directly applicable to our problem due to the peculiarity of how replication works in MySQL Cluster.
+However, concepts not directly relating to metadata replication, such as erasure coding in WAS, provide interesting insights in how to handle such tasks.

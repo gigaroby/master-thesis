@@ -3,7 +3,15 @@ CalvinFS \cite{DBLP:conf/fast/ThomsonA15} is an experimental distributed file-sy
 The distributed database is CalvinDB \cite{DBLP:conf/sigmod/ThomsonDWRSA12}, created by same of the same authors, a share-nothing distributed database with support for high-performance distributed transactions.
 
 \subsubsection{Architecture}
-Much like previously discussed distributed file-systems, the system is designed around two components:
+\begin{figure}[h]
+\caption{CalvinFS architecture diagram}
+\label{fig:calvin-block-diagram}
+\centering
+\includegraphics[width=1.0\textwidth]{images/calvin-block-diagram.png}
+\end{figure}
+
+
+Much like previously discussed distributed file-systems, the system is designed around two components, as shown in Figure \ref{fig:calvin-block-diagram}:
 \begin{itemize}
     \item a \emph{metadata store} which maintains information about file-system hierarchy, permissions, file-to-block mappings and replica locations, and
     \item a \emph{block store} which stores physical data on disk in blocks and provides primitives to read and write such blocks.
@@ -61,5 +69,5 @@ Each block is assigned a global ID which is stored in the metadata and, in order
 Each bucket is assigned to a set of machine and those machine are responsible for all the files whose ID hash is in the bucket.
 The mapping of machine to buckets is maintained in a Paxos replicated store and is additionally cached on all machines.
 
-\paragraph{Geographical replication} All of the components discussed above can be executed in geographically distant data-centers and the system assigns replicas accordingly to reduce the likelihood for data races.
-Most operations only need a quorum of machines to acknowledge any given operation before returning to the client, therefore the latency of the overall system in the case of three geographic areas (the typical case) depends on the two geographical areas with the lowest latency to the client (the third will eventually ack).
+\paragraph{Geographical replication} All of the components discussed above can be executed in geographically distant data-centers and the system assigns replicas in a way that minimizes disruption during failures and network partitions.
+Most operations only need a quorum of machines to acknowledge before returning to the client, therefore the latency of the overall system in the case of three geographic areas (the typical case) depends on the two areas with the lowest latency to the client (the third will eventually ack).
